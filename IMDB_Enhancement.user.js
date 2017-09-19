@@ -5,7 +5,7 @@
 // @include     http://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.2.1.min.js
 // @author      TiLied
-// @version     0.0.07
+// @version     0.0.08
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -185,7 +185,7 @@ function DeleteValues(nameVal)
 	}
 }
 
-//Update gm value what:"cache","options"
+///Update gm value what:"cache","options"
 function UpdateGM(what)
 {
 	var gmVal;
@@ -332,6 +332,7 @@ function SwitchPage()
 			//xmlIMDB("connections", document.URL);
 			//xmlIMDB("xml", document.URL);
 			//xmlIMDB(); //DELETE THIS
+			//xmlIMDB("", "/tt0091350/");
 			break;
 		case 4:
 			AddCache("connects", document.URL);
@@ -441,15 +442,15 @@ function AddCache(what, url, doc)
 					{
 						fullUrl: url.match(/http:\/\/www\.imdb\.com\/title\/(tt\d+)\//),
 						dateId: Date.now(),
-						name: GetName(),
-						imdbYear: GetYear(),
-						directors: GetDirectors(),
-						writers: GetWriters(),
-						stars: GetStars(),
+						name: GetName("page"),
+						imdbYear: GetYear("page"),
+						directors: GetDirectors("page"),
+						writers: GetWriters("page"),
+						stars: GetStars("page"),
 						ratings: {},
-						//Props with Uppercase below
 						connects: {},
-						genres: GetGenresP(),
+						//Props with Uppercase below
+						genres: GetGenresP("page"),
 						custom: ""
 					};
 				UpdateGM("cache");
@@ -461,15 +462,15 @@ function AddCache(what, url, doc)
 						{
 							fullUrl: url.match(/http:\/\/www\.imdb\.com\/title\/(tt\d+)\//),
 							dateId: Date.now(),
-							name: GetName(),
-							imdbYear: GetYear(),
-							directors: GetDirectors(),
-							writers: GetWriters(),
-							stars: GetStars(),
+							name: GetName("page"),
+							imdbYear: GetYear("page"),
+							directors: GetDirectors("page"),
+							writers: GetWriters("page"),
+							stars: GetStars("page"),
 							ratings: {},
-							//Props with Uppercase below
 							connects: {},
-							genres: GetGenresP(),
+							//Props with Uppercase below
+							genres: GetGenresP("page"),
 							custom: ""
 						};
 					UpdateGM("cache");
@@ -481,17 +482,17 @@ function AddCache(what, url, doc)
 			{
 				cache[id] =
 					{
-						fullUrl: url.match(/http:\/\/www\.imdb\.com\/title\/(tt\d+)\//),
+						fullUrl: ["http://www.imdb.com/title/" + id, id],
 						dateId: Date.now(),
-						name: GetName(),
-						imdbYear: GetYear(),
-						directors: GetDirectors(),
-						writers: GetWriters(),
-						stars: GetStars(),
+						name: GetName("xml", doc),
+						imdbYear: GetYear("xml", doc),
+						directors: GetDirectors("xml", doc),
+						writers: GetWriters("xml", doc),
+						stars: GetStars("xml", doc),
 						ratings: {},
-						//Props with Uppercase below
 						connects: {},
-						genres: GetGenresP(),
+						//Props with Uppercase below
+						genres: GetGenresP("xml", doc),
 						custom: ""
 					};
 				UpdateGM("cache");
@@ -501,17 +502,17 @@ function AddCache(what, url, doc)
 				{
 					cache[id] =
 						{
-							fullUrl: url.match(/http:\/\/www\.imdb\.com\/title\/(tt\d+)\//),
+							fullUrl: ["http://www.imdb.com/title/" + id, id],
 							dateId: Date.now(),
-							name: GetName(),
-							imdbYear: GetYear(),
-							directors: GetDirectors(),
-							writers: GetWriters(),
-							stars: GetStars(),
+							name: GetName("xml", doc),
+							imdbYear: GetYear("xml", doc),
+							directors: GetDirectors("xml", doc),
+							writers: GetWriters("xml", doc),
+							stars: GetStars("xml", doc),
 							ratings: {},
-							//Props with Uppercase below
 							connects: {},
-							genres: GetGenresP(),
+							//Props with Uppercase below
+							genres: GetGenresP("xml", doc),
 							custom: ""
 						};
 					UpdateGM("cache");
@@ -564,7 +565,7 @@ function AddCache(what, url, doc)
 			}
 			break;
 		default:
-			alert("fun:AddCache(" + what + "," + url + "). default switch");
+			alert("fun:AddCache(" + what + "," + url + "," + doc + "). default switch");
 			break;
 	}
 }
@@ -605,25 +606,37 @@ function GetConnects(what, doc)
 					}
 
 				}
-
+				//console.log(hrefs);
+				if (hrefs.length !== 0)
+				{
 				for (let i = 0; i < hrefs.length; i++)
 				{
-					keys[i] = $(hrefs[i]).attr("href").slice(1, $(hrefs[i]).attr("href").length);
-					c[i] =
+						keys[i] = $(hrefs[i]).attr("href").slice(1, $(hrefs[i]).attr("href").length);
+						console.log(keys[i]);
+						c[i] =
+							{
+								name: $.trim($("#" + keys[i]).next().text())
+							};
+				}
+				} else
+				{
+					c[0] =
 						{
-							name: $.trim($("#" + keys[i]).next().text())
+							name: $.trim($(".li_group").text())
 						};
 				}
 				//console.log($("#" + keys[0]).next().text());
 				//console.log($("#" + keys[0]).next().next().is("div"));
+				//console.log(c);
 				//console.log(parent);
-				console.log(n);
-				for (let x = 0; x < n.length; x++)
+				//console.log(n);
+				//console.log(n.length);
+				for (x = 0; x < n.length; x++)
 				{
 					for (let i = n[x]; i < n[x + 1]; i++)
 					{
-						//console.log($(parent[i]));
-						//console.log($(parent[i]).is("div"));
+						console.log($(parent[i]));
+						console.log($(parent[i]).is("div"));
 						if ($(parent[i]).is("div"))
 						{
 							divs[y] = $(parent[i]);
@@ -668,7 +681,8 @@ function GetConnects(what, doc)
 					}
 
 				}
-
+				if (hrefs.length !== 0)
+				{
 				for (let i = 0; i < hrefs.length; i++)
 				{
 					keys[i] = $(hrefs[i]).attr("href").slice(1, $(hrefs[i]).attr("href").length);
@@ -677,11 +691,18 @@ function GetConnects(what, doc)
 						name: $.trim($(doc).contents().find("#" + keys[i]).next().text())
 						};
 				}
+				} else
+				{
+					c[0] =
+						{
+							name: $.trim($(doc).contents().find(".li_group").text())
+						};
+				}
 				//console.log($("#" + keys[0]).next().text());
 				//console.log($("#" + keys[0]).next().next().is("div"));
 				//console.log(parent);
 				//console.log(c);
-				for (let x = 0; x < n.length; x++)
+				for (x = 0; x < n.length; x++)
 				{
 					for (let i = n[x]; i < n[x + 1]; i++)
 					{
@@ -748,21 +769,37 @@ function GetAge()
 
 //Start
 //Function get name movie
-function GetName()
+//what:Where are we get connections on page or xml. doc:optional for xml
+function GetName(what, doc)
 {
-	if (debug)
+	switch (what)
 	{
-		console.log($(".titleBar"));
-		console.log($("h1[itemprop='name']"));
-		console.log($("h1[itemprop='name']").contents()[0].nodeValue);
-		console.log($(".originalTitle"));
-	}
-	if ($(".originalTitle").length !== 0)
-	{
-		return $.trim($(".originalTitle").contents()[0].nodeValue);
-	} else
-	{
-		return $.trim($("h1[itemprop='name']").contents()[0].nodeValue);
+		case "page":
+			if (debug)
+			{
+				console.log($(".titleBar"));
+				console.log($("h1[itemprop='name']"));
+				console.log($("h1[itemprop='name']").contents()[0].nodeValue);
+				console.log($(".originalTitle"));
+			}
+			if ($(".originalTitle").length !== 0)
+			{
+				return $.trim($(".originalTitle").contents()[0].nodeValue);
+			} else
+			{
+				return $.trim($("h1[itemprop='name']").contents()[0].nodeValue);
+			}
+		case "xml":
+			if ($(doc).contents().find(".originalTitle").length !== 0)
+			{
+				return $.trim($(doc).contents().find(".originalTitle").contents()[0].nodeValue);
+			} else
+			{
+				return $.trim($(doc).contents().find("h1[itemprop='name']").contents()[0].nodeValue);
+			}
+		default:
+			alert("fun:GetName(" + what + "," + doc + "). default switch");
+			break;
 	}
 }
 //Function get name movie
@@ -770,197 +807,349 @@ function GetName()
 
 //Start
 //Function get year movie
-function GetYear()
+//what:Where are we get connections on page or xml. doc:optional for xml
+function GetYear(what, doc)
 {
-	try
-	{
-		if (debug)
-		{
-			console.log($(".titleBar"));
-			console.log($("h1[itemprop='name']"));
-			//console.log($("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML);
-		}
-		return ($("h1[itemprop='name']").contents()[1] === undefined ? "-" : $.trim($("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML));
-	} catch (e) { console.log(e); }
+	switch (what) {
+		case "page":
+			try
+			{
+				if (debug)
+				{
+					console.log($(".titleBar"));
+					console.log($("h1[itemprop='name']"));
+					//console.log($("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML);
+				}
+				return ($("h1[itemprop='name']").contents()[1] === undefined ? "-" : $.trim($("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML));
+			} catch (e) { console.log(e); }
+			break;
+		case "xml":
+			try
+			{
+				return ($(doc).contents().find("h1[itemprop='name']").contents()[1] === undefined ? "-" : $.trim($(doc).contents().find("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML));
+			} catch (e) { console.log(e); }
+			break;
+		default:
+			alert("fun:GetYear(" + what + "," + doc + "). default switch");
+			break;
+	}
 }
 //Function get year movie
 //End
 
 //Start
 //Function get genres on movie page
-function GetGenresP()
+//what:Where are we get connections on page or xml. doc:optional for xml
+function GetGenresP(what, doc)
 {
 	var genres = {},
-		g = $("span[itemprop='genre']");
+		g;
 
-	for (let i = 0; i < g.length; i++)
+	switch (what) 
 	{
-		genres[$.trim(g[i].innerHTML)] = "http://www.imdb.com/genre/" + $.trim(g[i].innerHTML);
-	}
+		case "page":
+			g = $("span[itemprop='genre']");
 
-	return genres;
+			for (let i = 0; i < g.length; i++)
+			{
+				genres[$.trim(g[i].innerHTML)] = "http://www.imdb.com/genre/" + $.trim(g[i].innerHTML);
+			}
+
+			return genres;
+		case "xml":
+			g = $(doc).contents().find("span[itemprop='genre']");
+
+			for (let i = 0; i < g.length; i++)
+			{
+				genres[$.trim(g[i].innerHTML)] = "http://www.imdb.com/genre/" + $.trim(g[i].innerHTML);
+			}
+
+			return genres;
+		default:
+			alert("fun:GetGenresP(" + what + "," + doc + "). default switch");
+			break;
+	}
 }
 //Function get genres on movie page
 //End
 
 //Start
 //Function get directors movie
-function GetDirectors()
+//what:Where are we get connections on page or xml. doc:optional for xml
+function GetDirectors(what, doc)
 {
-	try
-	{
-		var d = [],
-			s = $(".credit_summary_item > .inline");
-		//console.log(s.contents());
-		for (let i = 0; i < s.length; i++)
-		{
-			if (s.contents()[i].nodeValue.indexOf("Director") !== -1)
+	var d = [],
+		s,
+		spa,
+		str;
+
+	switch (what) { 
+		case "page":
+			try
 			{
-				//console.log(s.contents()[i]);
-				//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
-				var spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
-				if (spa.length > 1)
+				s = $(".credit_summary_item > .inline");
+				//console.log(s.contents());
+				for (let i = 0; i < s.length; i++)
 				{
-					for (let i = 0; i < spa.length; i++)
+					if (s.contents()[i].nodeValue.indexOf("Director") !== -1)
 					{
-						var str = $.trim($(spa[i]).text());
-						str = str.replace(/,|\|/g, '');
-						if (str !== "")
+						//console.log(s.contents()[i]);
+						//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
+						spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
+						if (spa.length > 1)
 						{
-							d[i] = str;
+							for (let i = 0; i < spa.length; i++)
+							{
+								str = $.trim($(spa[i]).text());
+								str = str.replace(/,|\|/g, '');
+								if (str !== "")
+								{
+									d[i] = str;
+								}
+							}
+						} else
+						{
+							d[0] = $.trim(spa.text());
 						}
 					}
-				} else
-				{
-					d[0] = $.trim(spa.text());
 				}
-			}
-		}
-		return d;
-	} catch (e) { console.log(e); }
+				return d;
+			} catch (e) { console.log(e); }
+			break;
+		case "xml":
+			try
+			{
+				s = $(doc).contents().find(".credit_summary_item > .inline");
+				//console.log(s.contents());
+				for (let i = 0; i < s.length; i++)
+				{
+					if (s.contents()[i].nodeValue.indexOf("Director") !== -1)
+					{
+						//console.log(s.contents()[i]);
+						//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
+						spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
+						if (spa.length > 1)
+						{
+							for (let i = 0; i < spa.length; i++)
+							{
+								str = $.trim($(spa[i]).text());
+								str = str.replace(/,|\|/g, '');
+								if (str !== "")
+								{
+									d[i] = str;
+								}
+							}
+						} else
+						{
+							d[0] = $.trim(spa.text());
+						}
+					}
+				}
+				return d;
+			} catch (e) { console.log(e); }
+			break;
+		default:
+			alert("fun:GetDirectors(" + what + "," + doc + "). default switch");
+			break;
+	}
 }
 //Function get directors movie
 //End
 
-
 //Start
 //Function get writes movie
-function GetWriters()
+//what:Where are we get connections on page or xml. doc:optional for xml
+function GetWriters(what, doc)
 {
 	var w = [],
-		s = $(".credit_summary_item > .inline");
-	//console.log(s.contents());
-	for (let i = 0; i < s.length; i++)
-	{
-		if (s.contents()[i].nodeValue.indexOf("Writer") !== -1)
-		{
-			//console.log(s.contents()[i]);
-			//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
-			var spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
-			if (spa.length > 1)
+		s,
+		spa,
+		str;
+
+	switch (what) {
+		case "page":
+
+			s = $(".credit_summary_item > .inline");
+
+			for (let i = 0; i < s.length; i++)
 			{
-				for (let i = 0; i < spa.length; i++)
+				if (s.contents()[i].nodeValue.indexOf("Writer") !== -1)
 				{
-					var str = $.trim($(spa[i]).text());
-					str = str.replace(/,|\|/g, '');
-					if (str !== "")
+					//console.log(s.contents()[i]);
+					//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
+					spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
+					if (spa.length > 1)
 					{
-						w[i] = str;
+						for (let i = 0; i < spa.length; i++)
+						{
+							str = $.trim($(spa[i]).text());
+							str = str.replace(/,|\|/g, '');
+							if (str !== "")
+							{
+								w[i] = str;
+							}
+						}
+					} else
+					{
+						w[0] = $.trim(spa.text());
 					}
 				}
-			} else
-			{
-				w[0] = $.trim(spa.text());
 			}
-		}
+			return w;
+		case "xml":
+
+			s = $(doc).contents().find(".credit_summary_item > .inline");
+
+			for (let i = 0; i < s.length; i++)
+			{
+				if (s.contents()[i].nodeValue.indexOf("Writer") !== -1)
+				{
+					//console.log(s.contents()[i]);
+					//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
+					spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
+					if (spa.length > 1)
+					{
+						for (let i = 0; i < spa.length; i++)
+						{
+							str = $.trim($(spa[i]).text());
+							str = str.replace(/,|\|/g, '');
+							if (str !== "")
+							{
+								w[i] = str;
+							}
+						}
+					} else
+					{
+						w[0] = $.trim(spa.text());
+					}
+				}
+			}
+			return w;
+		default:
+			alert("fun:GetWriters(" + what + "," + doc + "). default switch");
+			break;
 	}
-	return w;
 }
 //Function get writes movie
 //End
 
 //Start
 //Function get stars movie
-function GetStars()
+//what:Where are we get connections on page or xml. doc:optional for xml
+function GetStars(what, doc)
 {
 	var st = [],
-		s = $(".credit_summary_item > .inline");
-	//console.log(s.contents());
-	for (let i = 0; i < s.length; i++)
-	{
-		if (s.contents()[i].nodeValue.indexOf("Star") !== -1)
-		{
-			//console.log(s.contents()[i]);
-			//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
-			var spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
-			if (spa.length > 1)
+		s,
+		spa,
+		str;
+
+	switch (what) {
+		case "page":
+			s = $(".credit_summary_item > .inline");
+
+			for (let i = 0; i < s.length; i++)
 			{
-				for (let i = 0; i < spa.length; i++)
+				if (s.contents()[i].nodeValue.indexOf("Star") !== -1)
 				{
-					var str = $.trim($(spa[i]).text());
-					str = str.replace(/,|\|/g, '');
-					if (str !== "")
+					//console.log(s.contents()[i]);
+					//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
+					spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
+					if (spa.length > 1)
 					{
-						st[i] = str;
+						for (let i = 0; i < spa.length; i++)
+						{
+							str = $.trim($(spa[i]).text());
+							str = str.replace(/,|\|/g, '');
+							if (str !== "")
+							{
+								st[i] = str;
+							}
+						}
+					} else
+					{
+						st[0] = $.trim(spa.text());
 					}
 				}
-			} else
-			{
-				st[0] = $.trim(spa.text());
 			}
-		}
+			return st;
+		case "xml":
+			s = $(doc).contents().find(".credit_summary_item > .inline");
+
+			for (let i = 0; i < s.length; i++)
+			{
+				if (s.contents()[i].nodeValue.indexOf("Star") !== -1)
+				{
+					//console.log(s.contents()[i]);
+					//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
+					spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
+					if (spa.length > 1)
+					{
+						for (let i = 0; i < spa.length; i++)
+						{
+							str = $.trim($(spa[i]).text());
+							str = str.replace(/,|\|/g, '');
+							if (str !== "")
+							{
+								st[i] = str;
+							}
+						}
+					} else
+					{
+						st[0] = $.trim(spa.text());
+					}
+				}
+			}
+			return st;
+		default:
+			alert("fun:GetStars(" + what + "," + doc + "). default switch");
+			break;
 	}
-	return st;
 }
 //Function get stars movie
 //End
 
-
-//-------------------------
-//XMLHTTPREQUESTS/IFRAME BELOW
-//-------------------------
-
 //Start
-//Function CheckIframeLoaded
-function CheckIframeLoaded()
+//Function get genre from cache
+function GetGenre()
 {
-	//$('#imdbe_iframeIMDB').load(function ()
-	//{
-		//$(this).show();
-	//	console.log("0I am loaded");
-	//});
-	//$(function ()
-	//{
-	//	$('#imdbe_iframeIMDB').ready(function ()
-	//	{
-	//		console.log("I am loaded");
-	//	});
-	//});
-	// Get a handle to the iframe element
-	//var iframe = document.getElementById("imdbe_iframeIMDB");
-	//var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-
-
-	// Check if loading is complete
-	//if (iframeDoc.readyState === 'complete')
-	//{
-	//	alert("I am loaded");
-	//	return;
-	//}
-	
-	// If we are here, it is not loaded. Set things up so we check   the status again in 100 milliseconds
-	//window.setTimeout('CheckIframeLoaded();', 1000);
-	//window.setInterval(function () { CheckIframeLoaded(); }, 100);
+	try
+	{
+		var id,
+			rows = $("div.filmo-row > b > a");
+		for (let i = 0; i < rows.length; i++)
+		{
+			//console.log(rows[i].attr("href"));
+			id = $(rows[i]).attr("href").match(/\/(tt\d+)\//)[1];
+			//console.log(id);
+			if (cache[id] === undefined)
+			{
+				//console.log(id);
+				xmlIMDB("movie", "/" + id + "/");
+			} else
+			{
+				//console.log(id);
+				ShowGenre(id, rows[i]);
+				//console.log("Yes");
+			}
+		}
+		//console.log(rows);
+	} catch (e) { console.error(e); }
 }
-//Function CheckIframeLoaded
+//Function get genre from cache
 //End
+
+//-------------------------
+//XMLHTTPREQUESTS BELOW
+//-------------------------
 
 //Start
 //Function xml/iframe on imdb
 function xmlIMDB(what, url)
 {
-	var id = url.match(/\/(tt\d+)\//)[1];
-
+	var id = url.match(/\/(tt\d+)\//)[1],
+		parser = new DOMParser(),
+		doc;
+	//console.log(id);
 	switch (what)
 	{
 		case "connections":
@@ -971,8 +1160,7 @@ function xmlIMDB(what, url)
 				onload: function (response)
 				{
 					console.log(response);
-					var parser = new DOMParser();
-					var doc = parser.parseFromString(response.responseText, "text/html");
+					doc = parser.parseFromString(response.responseText, "text/html");
 					AddCache("connectsXML", document.URL, doc);
 					ShowConnections(url);
 				},
@@ -981,36 +1169,23 @@ function xmlIMDB(what, url)
 					console.error(e);
 				}
 			});
-			/*
-			$("<iframe>", {
-				src: "http://www.imdb.com/title/" + id + "/movieconnections",
-				referrerpolicy: "no-referrer",
-				id: "imdbe_iframeIMDB",
-				frameborder: 0,
-				width: 1000
-			}).insertAfter('#footer');
-			//CheckIframeLoaded();
-			setTimeout(function ()
-			{
-				document.querySelector("#imdbe_iframeIMDB").remove();
-			}, 5000);
-			*/
 			break;
 		case "movie":
-			/*
-			$("<iframe>", {
-				src: "http://www.imdb.com/title/" + id,
-				referrerpolicy: "no-referrer",
-				id: "imdbe_iframeIMDB",
-				frameborder: 0,
-				width: 1000
-			}).insertAfter('#footer');
-			//CheckIframeLoaded();
-			setTimeout(function ()
-			{
-				document.querySelector("#imdbe_iframeIMDB").remove();
-			}, 5000);
-			*/
+			GM_xmlhttpRequest({
+				method: "GET",
+				url: "http://www.imdb.com/title/" + id,
+				headers: { "User-agent": navigator.userAgent, "Accept": "document" },
+				onload: function (response)
+				{
+					console.log(response);
+					doc = parser.parseFromString(response.responseText, "text/html");
+					AddCache("movieXML","/" + id + "/", doc);
+				},
+				onerror: function (e)
+				{
+					console.error(e);
+				}
+			});
 			break;
 		case "xml":
 			GM_xmlhttpRequest({
@@ -1047,36 +1222,6 @@ function xmlIMDB(what, url)
 			});
 			break;
 	}
-	/*
-	GM_xmlhttpRequest({
-		method: "GET",
-		url: "https://www.reddit.com/r/movies/comments/6yakju/rami_malek_as_freddie_mercury_in_bohemian_rhapsody/",
-		//url: "http://www.imdb.com/title/tt0409799/movieconnections",
-		//url: "http://www.imdb.com/name/nm2093747/?ref_=tt_cl_t12",
-		onload: function (response)
-		{
-			//.replace(/[\s\S]*?(<div id="connections_content" class="header">)/ig, '')
-			console.log($.trim(StripNewLines(response.responseText)));
-			//document.getElementById('footer').insertAdjacentHTML('afterend', $.trim(StripNewLines(response.responseText)));
-			$('<iframe>', {
-				srcdoc: $.trim(StripNewLines(response.responseText)),
-				//src: 'http://www.imdb.com/name/nm1653263/',
-				referrerpolicy: "no-referrer",
-				id: 'imdbe_iframe',
-				frameborder: 0,
-				width: 1000
-			}).insertAfter('#footer');
-			setTimeout(function () { console.log($("#imdbe_iframe").contents().find(".thing"));},5000);
-		},
-		onerror: function (response)
-		{
-			//.replace(/[\s\S]*?(<div id="connections_content" class="header">)/ig, '')
-			console.log(response);
-			//document.getElementById('footer').insertAdjacentHTML('afterend', StripNewLines(response.responseText));
-		}
-	});
-	//console.log($("#imdbe_iframe").contents());
-	*/
 }
 //Function xml on imdb
 //End
@@ -1091,7 +1236,7 @@ function ShowAge(birthDate, years, months)
 {
 	var container = " <span>(Age: " + years + " year" + (years === 1 ? '' : 's') + ", " + months + " month" + (months === 1 ? '' : 's') + ")</span>";
 
-	if (!debug && GM_getValue("adm") && (document.URL.match(/http:\/\/www\.imdb\.com\/name\/nm1782299/i) || document.URL.match(/http:\/\/www\.imdb\.com\/name\/nm0914612/i)))
+	if (debug && GM_getValue("adm") && (document.URL.match(/http:\/\/www\.imdb\.com\/name\/nm1782299/i) || document.URL.match(/http:\/\/www\.imdb\.com\/name\/nm0914612/i)))
 	{
 		var c = "<span>(Always 18)</span>";
 		$(c).insertAfter(birthDate)
@@ -1113,9 +1258,27 @@ function ShowAge(birthDate, years, months)
 
 //Start
 //Function show genre on people page
-function ShowGenre()
+function ShowGenre(id, row)
 {
-	
+	var g = "(";
+	var div = $(row).parent().parent();
+	//console.log(cache[id]["genres"]);
+	//console.log(Object.keys(cache[id]["genres"]).length);
+	for (let i = 0; i < Object.keys(cache[id]["genres"]).length; i++)
+	{
+		if (i === (Object.keys(cache[id]["genres"]).length - 1))
+		{
+			g += "<a href=" + Object.values(cache[id]["genres"])[i] + " style='font- size: 11px;'>" + Object.keys(cache[id]["genres"])[i] + "</a>"
+		}
+		else
+		{
+			g += "<a href=" + Object.values(cache[id]["genres"])[i] + " style='font- size: 11px;'>" + Object.keys(cache[id]["genres"])[i] + "</a>, "
+		}
+	}
+	g += ") <br>"
+	//console.log(g);
+	//console.log($(div).children("br")[0]);
+	$($(div).children("br")[0]).after(g);
 }
 //Function show genre on people page
 //End
@@ -1370,7 +1533,8 @@ function StripNewLines(string)
 	 2.1)Kinopoisk
 	 2.2)Rotten
 	 2.3)r/movies
-	3)Add genres
+	3)Add genres	//DONE 0.0.08
+	 3.0)Its done but only works when reload second time, i need detect when ALL xml requests are finished and call function ShowGenres
 	 3.1)on search(compact) too
 	4)Change a bit Menu
 	5)Dark theme?
@@ -1384,4 +1548,4 @@ function StripNewLines(string)
 	 8.3)Recently Viewed
 	9)Show months of movies on peaple page... maybe
 	 9.1)On search too... maybe
-*/
+TODO ENDS */
