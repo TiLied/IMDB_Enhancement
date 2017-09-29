@@ -5,7 +5,7 @@
 // @include     http://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.2.1.min.js
 // @author      TiLied
-// @version     0.0.08
+// @version     0.0.09
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -31,11 +31,27 @@ var options = {},
 	versionCache,
 	connections;
 
-Main();
+//ENUM, BECAUSE WHY NOT ¯\_(ツ)_/¯
+//SEE FUNCTION GetPage()
+var Page;
+(function (Page)
+{
+	Page[Page["ErrorNothing"] = 0] = "ErrorNothing";
+	Page[Page["front"] = 1] = "front";
+	Page[Page["search"] = 2] = "search";
+	Page[Page["movie"] = 3] = "movie";
+	Page[Page["connections"] = 4] = "connections";
+	Page[Page["people"] = 5] = "people";
+	Page[Page["ErrorNothing1"] = 6] = "ErrorNothing1";
+	Page[Page["ErrorNothing2"] = 7] = "ErrorNothing2";
+	Page[Page["ErrorNothing3"] = 8] = "ErrorNothing3";
+	Page[Page["ErrorNothing4"] = 9] = "ErrorNothing4";
+	Page[Page["anythingElse"] = 10] = "anythingElse";
+})(Page || (Page = {}));
 
 //Start
 //Function main
-function Main()
+void function Main()
 {
 	console.log("IMDB Enhancement v" + GM_info.script.version + " Initialized");
 	//Place CSS in head
@@ -46,8 +62,8 @@ function Main()
 	SwitchPage();
 	//Place UI Options
 	SetOption();
-	console.log("Page number: " + whatPage);	//Enum plz :c
-}
+	console.log("Page number: " + whatPage + "/" + Page[whatPage] + " page");
+}()
 //Function main
 //End
 
@@ -267,7 +283,7 @@ function SetOptionsObj()
 	//genre option
 	if (options.genre === undefined)
 	{
-		options.genre = true;
+		options.genre = false;
 		genre = options.genre;
 	} else
 	{
@@ -359,7 +375,7 @@ function GetPage(url)
 	3-movie/TV page
 	4-connections
 	5-people(Actor,Actress, etc.) page
-	10-
+	10-anything else
 	*/
 	try
 	{
@@ -431,6 +447,9 @@ function SetUpForMovie()
 //doc: optional for xml
 function AddCache(what, url, doc)
 {
+	//
+	//MADE ANOTHER FUNCTION FOR CACHE WITHOUT COPING CODE FOR PGE AND XML
+	//
 	var id = url.match(/\/(tt\d+)\//)[1];
 	
 	switch (what) 
@@ -1110,7 +1129,7 @@ function GetStars(what, doc)
 
 //Start
 //Function get genre from cache
-function GetGenre()
+async function GetGenre()
 {
 	try
 	{
@@ -1124,7 +1143,8 @@ function GetGenre()
 			if (cache[id] === undefined)
 			{
 				//console.log(id);
-				xmlIMDB("movie", "/" + id + "/");
+				await xmlIMDB("movie", "/" + id + "/");
+				ShowGenre(id, rows[i]);
 			} else
 			{
 				//console.log(id);
@@ -1153,40 +1173,44 @@ function xmlIMDB(what, url)
 	switch (what)
 	{
 		case "connections":
-			GM_xmlhttpRequest({
-				method: "GET",
-				url: "http://www.imdb.com/title/" + id + "/movieconnections",
-				headers: { "User-agent": navigator.userAgent, "Accept": "document" },
-				onload: function (response)
-				{
-					console.log(response);
-					doc = parser.parseFromString(response.responseText, "text/html");
-					AddCache("connectsXML", document.URL, doc);
-					ShowConnections(url);
-				},
-				onerror: function (e)
-				{
-					console.error(e);
-				}
+			return new Promise(function (resolve, reject)
+			{
+				GM_xmlhttpRequest({
+					method: "GET",
+					url: "http://www.imdb.com/title/" + id + "/movieconnections",
+					//headers: { "User-agent": navigator.userAgent, "Accept": "document" },
+					onload: function (response)
+					{
+						if (debug) console.log(response);
+						doc = parser.parseFromString(response.responseText, "text/html");
+						AddCache("connectsXML", document.URL, doc.body);
+						resolve(ShowConnections(url));
+					},
+					onerror: function (e)
+					{
+						reject(console.error(e));
+					}
+				});
 			});
-			break;
 		case "movie":
-			GM_xmlhttpRequest({
-				method: "GET",
-				url: "http://www.imdb.com/title/" + id,
-				headers: { "User-agent": navigator.userAgent, "Accept": "document" },
-				onload: function (response)
-				{
-					console.log(response);
-					doc = parser.parseFromString(response.responseText, "text/html");
-					AddCache("movieXML","/" + id + "/", doc);
-				},
-				onerror: function (e)
-				{
-					console.error(e);
-				}
+			return new Promise(function (resolve, reject)
+			{
+				GM_xmlhttpRequest({
+					method: "GET",
+					url: "http://www.imdb.com/title/" + id,
+					//headers: { "User-agent": navigator.userAgent, "Accept": "document" },
+					onload: function (response)
+					{
+						if(debug) console.log(response);
+						doc = parser.parseFromString(response.responseText, "text/html");
+						resolve(AddCache("movieXML", "/" + id + "/", doc.body));
+					},
+					onerror: function (e)
+					{
+						reject(console.error(e));
+					}
+				});
 			});
-			break;
 		case "xml":
 			GM_xmlhttpRequest({
 				method: "GET",
@@ -1268,11 +1292,11 @@ function ShowGenre(id, row)
 	{
 		if (i === (Object.keys(cache[id]["genres"]).length - 1))
 		{
-			g += "<a href=" + Object.values(cache[id]["genres"])[i] + " style='font- size: 11px;'>" + Object.keys(cache[id]["genres"])[i] + "</a>"
+			g += "<a href=" + Object.values(cache[id]["genres"])[i] + " style='font-size:11px;'>" + Object.keys(cache[id]["genres"])[i] + "</a>"
 		}
 		else
 		{
-			g += "<a href=" + Object.values(cache[id]["genres"])[i] + " style='font- size: 11px;'>" + Object.keys(cache[id]["genres"])[i] + "</a>, "
+			g += "<a href=" + Object.values(cache[id]["genres"])[i] + " style='font-size:11px;'>" + Object.keys(cache[id]["genres"])[i] + "</a>, "
 		}
 	}
 	g += ") <br>"
@@ -1534,7 +1558,7 @@ function StripNewLines(string)
 	 2.2)Rotten
 	 2.3)r/movies
 	3)Add genres	//DONE 0.0.08
-	 3.0)Its done but only works when reload second time, i need detect when ALL xml requests are finished and call function ShowGenres
+	 3.0)Its done but only works when reload second time, i need detect when ALL xml requests are finished and call function ShowGenres		//DONE 0.0.09
 	 3.1)on search(compact) too
 	4)Change a bit Menu
 	5)Dark theme?
@@ -1548,4 +1572,5 @@ function StripNewLines(string)
 	 8.3)Recently Viewed
 	9)Show months of movies on peaple page... maybe
 	 9.1)On search too... maybe
+	10)Make event in different functions(For connections, for options and so on)
 TODO ENDS */
