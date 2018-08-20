@@ -5,7 +5,7 @@
 // @include     https://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      TiLied
-// @version     0.1.01
+// @version     0.1.04
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -36,9 +36,11 @@ var options = {},
 	version,
 	versionCache,
 	connections,
-	trailer;
+	trailer,
+	hide;
 
-var GetContent = GetContent();
+var GetContent = GetContentF(),
+	metaObj;
 
 /**
 * ENUM, BECAUSE WHY NOT ¯\_(ツ)_/¯
@@ -282,6 +284,27 @@ function SetOptionsObj()
 			additionalRatings = options.additionalRatings;
 		}
 
+		//hide option
+		if (typeof options.hide === "undefined")
+		{
+			options.hide =
+				{
+					on: true,
+					faq: true,
+					dyk: true,
+					userRev: false,
+					recVie: false
+				};
+			hide = options.hide;
+		} else
+		{
+			if (typeof options.hide["faq"] === "undefined") { options.hide["faq"] = true; }
+			if (typeof options.hide["dyk"] === "undefined") { options.hide["dyk"] = true; }
+			if (typeof options.hide["userRev"] === "undefined") { options.hide["userRev"] = false; }
+			if (typeof options.hide["recVie"] === "undefined") { options.hide["recVie"] = false; }
+			hide = options.hide;
+		}
+
 		//age option
 		if (typeof options.age === "undefined")
 		{
@@ -371,17 +394,11 @@ function SwitchPage()
 		case 3:
 			AddCache("movie", document.URL);
 			SetUpForMovie();
-			//xmlIMDB("connections", document.URL);
-			//xmlIMDB("xml", document.URL);
-			//xmlIMDB(); //DELETE THIS
-			//xmlIMDB("", "/tt0091350/");
 			break;
 		case 4:
 			AddCache("connects", document.URL);
-			//GetContent(what, doc).connects(); DELETE THIS
 			break;
 		case 5:
-			//xmlIMDB(); DELETE THIS
 			SetUpForPeople();
 			break;
 		case 6:
@@ -462,11 +479,10 @@ function SetUpForMovie()
 
 	if (trailer)
 	{
-		//TODO
-		//ShowYoutubeUrl(document.URL);
+		ShowYoutubeUrl(document.URL);
 	}
 
-	if (additionalRatings)
+	if (additionalRatings["on"])
 	{
 		if (additionalRatings["kinopoisk"])
 		{
@@ -488,6 +504,11 @@ function SetUpForMovie()
 			ShowRatings(document.URL, "tmdb");
 		}
 	}
+
+	if (hide["on"])
+	{
+		//TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	}
 }
 //Function check option on this movie page
 //End
@@ -508,6 +529,7 @@ function AddCache(what, url, doc)
 	function ChacheObj(id, what, url, doc)
 	{
 		console.log(doc);
+		console.log(metaObj);
 		if (typeof doc === "undefined")
 		{
 			cache[id] =
@@ -551,6 +573,8 @@ function AddCache(what, url, doc)
 	switch (what) 
 	{
 		case "movie":
+			if (typeof metaObj === "undefined")
+				metaObj = JSON.parse($("head > script[type='application/ld+json']").text());
 			if (typeof cache[id] === "undefined")
 			{
 				ChacheObj(id, what, url, doc);
@@ -559,21 +583,24 @@ function AddCache(what, url, doc)
 			{
 				if ((cache[id]["dateId"] + oneMonth) <= Date.now())
 				{
-					ChacheObj(id, what, url, doc)
+					ChacheObj(id, what, url, doc);
 					UpdateGM("cache");
 				}
 			}
 			break;
 		case "movieXML":
+			console.log(doc);
+			if (typeof metaObj === "undefined")
+				metaObj = JSON.parse($(doc).contents().find("head > script[type='application/ld+json']").text());
 			if (typeof cache[id] === "undefined")
 			{
-				ChacheObj(id, what, url, doc)
+				ChacheObj(id, what, url, doc);
 				UpdateGM("cache");
 			} else
 			{
 				if ((cache[id]["dateId"] + oneMonth) <= Date.now())
 				{
-					ChacheObj(id, what, url, doc)
+					ChacheObj(id, what, url, doc);
 					UpdateGM("cache");
 				}
 			}
@@ -582,8 +609,9 @@ function AddCache(what, url, doc)
 			if (typeof cache[id] === "undefined")
 			{
 				//NEED THINK ABOUT, REQUEST IFRAME AND ADD MOVIE AND AFTER CONNECTIONS TODO
+				// TODO!!!!!!!!!!!!!!!!!!!!!!
 				xmlIMDB("movie", document.URL);
-				AddCache("connects", document.URL);
+				//AddCache("connects", document.URL);
 			} else
 			{
 				if ((cache[id]["dateId"] + oneMonth) <= Date.now())
@@ -600,6 +628,8 @@ function AddCache(what, url, doc)
 			}
 			break;
 		case "connectsXML":
+			if (typeof metaObj === "undefined")
+				metaObj = JSON.parse($(doc).contents().find("head > script[type='application/ld+json']").text());
 			if (typeof cache[id] === "undefined")
 			{
 				//NEED THINK ABOUT, REQUEST IFRAME AND ADD MOVIE AND AFTER CONNECTIONS TODO
@@ -703,7 +733,8 @@ function AddCache(what, url, doc)
 
 //Start
 //Function get Content
-function GetContent()
+//BURN OUT thats wht F!
+function GetContentF()
 {
 	//Start
 	//Function get connections on connections page
@@ -908,6 +939,7 @@ function GetContent()
 		switch (what)
 		{
 			case "page":
+				/*
 				if (debug)
 				{
 					console.log($(".titleBar"));
@@ -922,7 +954,10 @@ function GetContent()
 				{
 					return $.trim($("h1[itemprop='name']").contents()[0].nodeValue);
 				}
+				*/
+				return metaObj.name;
 			case "xml":
+				/*
 				if ($(doc).contents().find(".originalTitle").length !== 0)
 				{
 					return $.trim($(doc).contents().find(".originalTitle").contents()[0].nodeValue);
@@ -930,6 +965,8 @@ function GetContent()
 				{
 					return $.trim($(doc).contents().find("h1[itemprop='name']").contents()[0].nodeValue);
 				}
+				*/
+				return metaObj.name;
 			default:
 				alert("fun:GetContent(what).name(" + what + "," + doc + "). default switch");
 				break;
@@ -950,16 +987,21 @@ function GetContent()
 				{
 					if (debug)
 					{
-						console.log($(".titleBar"));
-						console.log($("h1[itemprop='name']"));
+						//console.log($(".titleBar"));
+						//console.log($("h1[itemprop='name']"));
+						//console.log(document.title.replace(/^(.+) \((\D*)([0-9]{4})(.*)$/gi, '$3'));
 						//console.log($("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML);
+						console.log(metaObj.datePublished);
 					}
-					return ($("h1[itemprop='name']").contents()[1] === undefined ? "-" : $.trim($("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML));
+					//return encodeURIComponent(document.title.replace(/^(.+) \((\D*)([0-9]{4})(.*)$/gi, '$3'));
+					let moonLanding = new Date(metaObj.datePublished);
+					return moonLanding.getFullYear();
 				} catch (e) { console.log(e); }
 				break;
 			case "xml":
 				try
 				{
+					//FIND FIX!!!!!!!!!!!!!!!!!!!!!!!! TODO
 					return ($(doc).contents().find("h1[itemprop='name']").contents()[1] === undefined ? "-" : $.trim($(doc).contents().find("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML));
 				} catch (e) { console.log(e); }
 				break;
@@ -1332,11 +1374,11 @@ function GetContent()
 						return obj = {
 							url: "https://www.kinopoisk.ru/index.php?level=7&from=forma&result=adv&m_act[from]=forma&m_act[what]=content&m_act[find]=" + cache[id]["name"] + "&m_act[year]=" + cache[id]["imdbYear"],
 							score: "N/A"
-						}
+						};
 					}
 
-					obj.url = "https://www.kinopoisk.ru" + el.find("p.name a").attr("data-url");
-					obj.score = parseInt(el.find("div.rating").text().split(".").join(""));
+					obj.url = "https://www.kinopoisk.ru" + $(el).contents().find("p.name a").attr("data-url");
+					obj.score = parseInt($(el).contents().find("div.rating").text().split(".").join(""));
 					if (debug)
 					{
 						console.log(doc);
@@ -1367,7 +1409,7 @@ function GetContent()
 						return obj = {
 							url: "https://www.rottentomatoes.com/search/?search=" + cache[id]["name"],
 							score: "N/A"
-						}
+						};
 					}
 
 					//obj.url = "https://www.rottentomatoes.com" + el.find("p.name a").attr("data-url");
@@ -1387,7 +1429,7 @@ function GetContent()
 						return obj = {
 							url: "https://www.themoviedb.org/search?query=" + cache[id]["name"] + " y:" + cache[id]["imdbYear"],
 							score: "N/A"
-						}
+						};
 					}
 					obj.url = "https://www.themoviedb.org" + $(el).contents().find("div a").attr("href");
 					obj.score = parseInt($(el).contents().find("div.user_score_chart").attr("data-percent"));
@@ -1473,7 +1515,8 @@ function xmlIMDB(what, url)
 					{
 						if (debug) console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						resolve(AddCache("movieXML", "/" + id + "/", doc.body));
+						console.log(doc);
+						resolve(AddCache("movieXML", "/" + id + "/", doc));
 					},
 					onerror: function (e)
 					{
@@ -1635,14 +1678,14 @@ function ShowGenre(id, row)
 	{
 		if (i === (Object.keys(cache[id]["genres"]).length - 1))
 		{
-			g += "<a href=" + Object.values(cache[id]["genres"])[i] + " style='font-size:11px;'>" + Object.keys(cache[id]["genres"])[i] + "</a>"
+			g += "<a href=" + Object.values(cache[id]["genres"])[i] + " style='font-size:11px;'>" + Object.keys(cache[id]["genres"])[i] + "</a>";
 		}
 		else
 		{
-			g += "<a href=" + Object.values(cache[id]["genres"])[i] + " style='font-size:11px;'>" + Object.keys(cache[id]["genres"])[i] + "</a>, "
+			g += "<a href=" + Object.values(cache[id]["genres"])[i] + " style='font-size:11px;'>" + Object.keys(cache[id]["genres"])[i] + "</a>, ";
 		}
 	}
-	g += ") <br>"
+	g += ") <br>";
 	//console.log(g);
 	//console.log($(div).children("br")[0]);
 	$($(div).children("br")[0]).after(g);
@@ -1772,7 +1815,7 @@ function ShowRatings(url, which)
 				}
 
 				html = "\
-					 <div class='titleReviewBarItem'>\
+				<div class='titleReviewBarItem'>\
                 <a href='" + cache[id]["ratings"]["kinopoisk"]["url"] + "'><div\
                     class='rt-consensus metacriticScore score_" + GetStringScore(cache[id]["ratings"]["kinopoisk"]["score"]) + " titleReviewBarSubItem'><span>" + cache[id]["ratings"]["kinopoisk"]["score"] + "</span></div></a>\
                <div class='titleReviewBarSubItem'>\
@@ -1785,7 +1828,7 @@ function ShowRatings(url, which)
                        </span>\
                    </div>\
                 </div>\
-			 </div>\
+				</div>\
 				<div class='divider'></div>";
 
 				revBar.prepend(html);
@@ -1798,7 +1841,7 @@ function ShowRatings(url, which)
 				}
 
 				html = "\
-					 <div class='titleReviewBarItem'>\
+				<div class='titleReviewBarItem'>\
                 <a href='" + cache[id]["ratings"]["rottenTomatoes"]["url"] + "'><div\
                     class='rt-consensus metacriticScore score_" + GetStringScore(cache[id]["ratings"]["rottenTomatoes"]["score"]) + " titleReviewBarSubItem'><span>" + cache[id]["ratings"]["rottenTomatoes"]["score"] + "</span></div></a>\
                <div class='titleReviewBarSubItem'>\
@@ -1811,7 +1854,7 @@ function ShowRatings(url, which)
                        </span>\
                    </div>\
                 </div>\
-			 </div>\
+				</div>\
 				<div class='divider'></div>";
 
 				revBar.prepend(html);
@@ -1824,7 +1867,7 @@ function ShowRatings(url, which)
 				}
 
 				html = "\
-					 <div class='titleReviewBarItem'>\
+				<div class='titleReviewBarItem'>\
                 <a href='" + cache[id]["ratings"]["tmdb"]["url"] + "'><div\
                     class='rt-consensus metacriticScore score_" + GetStringScore(cache[id]["ratings"]["tmdb"]["score"]) + " titleReviewBarSubItem'><span>" + cache[id]["ratings"]["tmdb"]["score"] + "</span></div></a>\
                <div class='titleReviewBarSubItem'>\
@@ -1837,7 +1880,7 @@ function ShowRatings(url, which)
                        </span>\
                    </div>\
                 </div>\
-			 </div>\
+				</div>\
 				<div class='divider'></div>";
 
 				revBar.prepend(html);
@@ -1852,6 +1895,27 @@ function ShowRatings(url, which)
 //Function show Ratings on movies/tv page
 //End
 
+
+//Start
+//Function show Youtube Url search trailer on movies/tv page
+function ShowYoutubeUrl(url)
+{
+	try
+	{
+		var id = url.match(/\/(tt\d+)\//)[1];
+		var slate = $("div.slate");
+		if (debug)
+			console.log(slate);
+		if (slate.length !== 0)
+			return;
+		var div = $("<div id=imdbe_divtrailer ></div>").html("<h1> \
+<a href='https://www.youtube.com/results?search_query=" + cache[id]["name"] + " trailer'>Search trailer on Youtube</a></h1 >\
+");
+		$("div.plot_summary_wrapper").prepend(div);
+	} catch (e) { console.error(e); }
+}
+//Function show Youtube Url search trailer on movies/tv page
+//End
 
 //Start
 //Function place css
@@ -1896,6 +1960,10 @@ function SetCSS()
 	padding-left:15px;\
 }"));
 
+	$("head").append($("<style type=text/css></style>").text("#imdbe_divtrailer { \
+	padding-left:20px;\
+}"));
+
 	$("head").append($("<!--End of IMDB Enhancement v" + GM.info.script.version + " CSS-->"));
 }
 //Function place css
@@ -1912,7 +1980,8 @@ function SetOption()
 <br> \
 <p>Options:</p>\
 	<input type=checkbox name=age id=imdbe_age >Show age</input><br> \
-	<input type=checkbox name=genre id=imdbe_genre >Show genre</input><br><br> \
+	<input type=checkbox name=genre id=imdbe_genre >Show genre</input><br>\
+	<input type=checkbox name=trailer id=imdbe_trailer >Show trailer</input><br><br> \
 	<input type=checkbox name=connections id=imdbe_connections >Show connections</input><br><br> \
 	<input type=checkbox name=additionalRatings id=imdbe_additionalRatings >Additional Ratings</input><br> \
 		<fieldset id=imdbe_field>\
@@ -1943,6 +2012,7 @@ function UIValues()
 {
 	$("#imdbe_age").prop("checked", age);
 	$("#imdbe_genre").prop("checked", genre);
+	$("#imdbe_trailer").prop("checked", trailer);
 	$("#imdbe_connections").prop("checked", connections);
 	$("#imdbe_additionalRatings").prop("checked", additionalRatings["on"]);
 	$("#imdbe_kinopoisk").prop("checked", additionalRatings["kinopoisk"]);
@@ -1993,6 +2063,11 @@ function SetEvents()
 	$("#imdbe_genre").change(function ()
 	{
 		options.genre = $(this).prop("checked");
+	});
+
+	$("#imdbe_trailer").change(function ()
+	{
+		options.trailer = $(this).prop("checked");
 	});
 
 	//RATINGS!!!!!!!!!!
@@ -2047,9 +2122,9 @@ function StripNewLines(string)
 //Function Get String Score
 function GetStringScore(num)
 {
-	if (typeof num === "string")
+	if (typeof num === "string" || num === null)
 		return "tbd";
-	else if (num >= 70)
+	else if (num >= 60)
 		return "favorable";
 	else if (num <= 40)
 		return "unfavorable";
@@ -2088,5 +2163,5 @@ function GetStringScore(num)
 	9)Show months of movies on peaple page... maybe
 	 9.1)On search too... maybe
 	10)Make event in different functions(For connections, for options and so on)
-	11)Add search trailer on youtube if trailer not avalible
+✓	11)Add search trailer on youtube if trailer not avalible		//DONE 0.1.02
 TODO ENDS */
