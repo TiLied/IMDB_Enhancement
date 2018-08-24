@@ -5,7 +5,7 @@
 // @include     https://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      TiLied
-// @version     0.1.04
+// @version     0.1.05
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -463,6 +463,8 @@ function SetUpForPeople()
 	if (genre)
 	{
 		GetContent.genre();
+		//event detecting click
+		SetEvents("clickFilm");
 	}
 }
 //Function check option on this people page
@@ -528,7 +530,7 @@ function AddCache(what, url, doc)
 
 	function ChacheObj(id, what, url, doc)
 	{
-		console.log(doc);
+		//console.log(doc);
 		console.log(metaObj);
 		if (typeof doc === "undefined")
 		{
@@ -543,6 +545,7 @@ function AddCache(what, url, doc)
 					stars: GetContent.stars("page"),
 					ratings: {},
 					connects: {},
+					image: GetContent.image("page"),
 					//Props with Uppercase below
 					genres: GetContent.genresP("page"),
 					summary: GetContent.summary("page"),
@@ -554,16 +557,17 @@ function AddCache(what, url, doc)
 				{
 					fullUrl: ["https://www.imdb.com/title/" + id, id],
 					dateId: Date.now(),
-					name: GetContent.name("xml", doc),
-					imdbYear: GetContent.year("xml", doc),
-					directors: GetContent.directors("xml", doc),
-					writers: GetContent.writers("xml", doc),
-					stars: GetContent.stars("xml", doc),
+					name: GetContent.name("xml", doc.body),
+					imdbYear: GetContent.year("xml", doc.body),
+					directors: GetContent.directors("xml", doc.body),
+					writers: GetContent.writers("xml", doc.body),
+					stars: GetContent.stars("xml", doc.body),
 					ratings: {},
 					connects: {},
+					image: GetContent.image("xml", doc.body),
 					//Props with Uppercase below
-					genres: GetContent.genresP("xml", doc),
-					summary: GetContent.summary("xml", doc),
+					genres: GetContent.genresP("xml", doc.body),
+					summary: GetContent.summary("xml", doc.body),
 					custom: ""
 				};
 		}
@@ -589,9 +593,15 @@ function AddCache(what, url, doc)
 			}
 			break;
 		case "movieXML":
-			console.log(doc);
-			if (typeof metaObj === "undefined")
-				metaObj = JSON.parse($(doc).contents().find("head > script[type='application/ld+json']").text());
+			if (debug)
+			{
+				//console.log(doc.head);
+				//console.log($(doc.head).contents());
+				//console.log($(doc.head).find("script[type='application/ld+json']"));
+			}
+
+			metaObj = JSON.parse($(doc.head).find("script[type='application/ld+json']").text());
+
 			if (typeof cache[id] === "undefined")
 			{
 				ChacheObj(id, what, url, doc);
@@ -628,8 +638,8 @@ function AddCache(what, url, doc)
 			}
 			break;
 		case "connectsXML":
-			if (typeof metaObj === "undefined")
-				metaObj = JSON.parse($(doc).contents().find("head > script[type='application/ld+json']").text());
+			//if (typeof metaObj === "undefined")
+			//	metaObj = JSON.parse($(doc.head).find("script[type='application/ld+json']").text());
 			if (typeof cache[id] === "undefined")
 			{
 				//NEED THINK ABOUT, REQUEST IFRAME AND ADD MOVIE AND AFTER CONNECTIONS TODO
@@ -733,7 +743,7 @@ function AddCache(what, url, doc)
 
 //Start
 //Function get Content
-//BURN OUT thats wht F!
+//BURN OUT thats why F!
 function GetContentF()
 {
 	//Start
@@ -906,8 +916,8 @@ function GetContentF()
 	//Function get age on people page
 	function Age()
 	{
-		birthDate = $("time[itemprop='birthDate']");
-		deathDate = $("time[itemprop='deathDate']");
+		birthDate = $("#name-born-info > time");
+		deathDate = $("#name-death-info > time");
 		var born = new Date();
 		var age;
 
@@ -1002,7 +1012,14 @@ function GetContentF()
 				try
 				{
 					//FIND FIX!!!!!!!!!!!!!!!!!!!!!!!! TODO
-					return ($(doc).contents().find("h1[itemprop='name']").contents()[1] === undefined ? "-" : $.trim($(doc).contents().find("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML));
+					//return ($(doc).contents().find("h1[itemprop='name']").contents()[1] === undefined ? "-" : $.trim($(doc).contents().find("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML));
+					if (typeof metaObj.datePublished === "undefined")
+						return "-";
+					else
+					{
+						let moonLanding = new Date(metaObj.datePublished);
+						return moonLanding.getFullYear();
+					}
 				} catch (e) { console.log(e); }
 				break;
 			default:
@@ -1024,7 +1041,7 @@ function GetContentF()
 		switch (what) 
 		{
 			case "page":
-				g = $("span[itemprop='genre']");
+				/*g = $("span[itemprop='genre']");
 
 				for (let i = 0; i < g.length; i++)
 				{
@@ -1032,14 +1049,40 @@ function GetContentF()
 				}
 
 				return genres;
-			case "xml":
-				g = $(doc).contents().find("span[itemprop='genre']");
+				*/
+				g = metaObj.genre;
 
+				if (typeof g === "string")
+					genres[g] = "https://www.imdb.com/genre/" + g;
+				else
+				{
+					for (let i = 0; i < g.length; i++)
+					{
+						genres[g[i]] = "https://www.imdb.com/genre/" + g[i];
+					}
+				}
+				return genres;
+			case "xml":
+				/*
+				g = $(doc).contents().find("span[itemprop='genre']");
+				if (debug)
+					console.log(g);
 				for (let i = 0; i < g.length; i++)
 				{
 					genres[$.trim(g[i].innerHTML)] = "https://www.imdb.com/genre/" + $.trim(g[i].innerHTML);
 				}
+				*/
+				g = metaObj.genre;
 
+				if (typeof g === "string")
+					genres[g] = "https://www.imdb.com/genre/" + g;
+				else
+				{
+					for (let i = 0; i < g.length; i++)
+					{
+						genres[g[i]] = "https://www.imdb.com/genre/" + g[i];
+					}
+				}
 				return genres;
 			default:
 				alert("fun:GetContent(what).genresP(" + what + "," + doc + "). default switch");
@@ -1064,6 +1107,7 @@ function GetContentF()
 			case "page":
 				try
 				{
+					/*
 					s = $(".credit_summary_item > .inline");
 					//console.log(s.contents());
 					for (let i = 0; i < s.length; i++)
@@ -1090,12 +1134,26 @@ function GetContentF()
 							}
 						}
 					}
+					*/
+					if (typeof metaObj["director"] === "undefined")
+						return d[0] = "-";
+					if (metaObj["director"].length > 1)
+					{
+						for (let i = 0; i < metaObj["director"].length; i++)
+						{
+							d[i] = metaObj["director"][i]["name"];
+						}
+					} else
+					{
+						d[0] = metaObj["director"]["name"];
+					}
 					return d;
 				} catch (e) { console.log(e); }
 				break;
 			case "xml":
 				try
 				{
+					/*
 					s = $(doc).contents().find(".credit_summary_item > .inline");
 					//console.log(s.contents());
 					for (let i = 0; i < s.length; i++)
@@ -1123,6 +1181,20 @@ function GetContentF()
 						}
 					}
 					return d;
+					*/
+					if (typeof metaObj["director"] === "undefined")
+						return d[0] = "-";
+					if (metaObj["director"].length > 1)
+					{
+						for (let i = 0; i < metaObj["director"].length; i++)
+						{
+							d[i] = metaObj["director"][i]["name"];
+						}
+					} else
+					{
+						d[0] = metaObj["director"]["name"];
+					}
+					return d;
 				} catch (e) { console.log(e); }
 				break;
 			default:
@@ -1146,7 +1218,7 @@ function GetContentF()
 		switch (what)
 		{
 			case "page":
-
+				/*
 				s = $(".credit_summary_item > .inline");
 
 				for (let i = 0; i < s.length; i++)
@@ -1173,9 +1245,23 @@ function GetContentF()
 						}
 					}
 				}
+				*/
+				if (typeof metaObj["creator"] === "undefined")
+					return w[0] = "-";
+				if (metaObj["creator"].length > 1)
+				{
+					for (let i = 0; i < metaObj["creator"].length; i++)
+					{
+						if (metaObj["creator"][i]["@type"] === "Person")
+							w[i] = metaObj["creator"][i]["name"];
+					}
+				} else
+				{
+					w[0] = metaObj["creator"]["name"];
+				}
 				return w;
 			case "xml":
-
+				/*
 				s = $(doc).contents().find(".credit_summary_item > .inline");
 
 				for (let i = 0; i < s.length; i++)
@@ -1203,6 +1289,21 @@ function GetContentF()
 					}
 				}
 				return w;
+				*/
+				if (typeof metaObj["creator"] === "undefined")
+					return w[0] = "-";
+				if (metaObj["creator"].length > 1)
+				{
+					for (let i = 0; i < metaObj["creator"].length; i++)
+					{
+						if (metaObj["creator"][i]["@type"] === "Person")
+							w[i] = metaObj["creator"][i]["name"];
+					}
+				} else
+				{
+					w[0] = metaObj["creator"]["name"];
+				}
+				return w;
 			default:
 				alert("fun:GetWriters(" + what + "," + doc + "). default switch");
 				break;
@@ -1224,7 +1325,50 @@ function GetContentF()
 		switch (what)
 		{
 			case "page":
+				/*
 				s = $(".credit_summary_item > .inline");
+
+				for (let i = 0; i < s.length; i++)
+				{
+					if (s.contents()[i].nodeValue.indexOf("Star") !== -1)
+					{
+						//console.log(s.contents()[i]);
+						//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
+						spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
+						if (spa.length > 1)
+						{
+							for (let i = 0; i < spa.length; i++)
+							{
+								str = $.trim($(spa[i]).text());
+								str = str.replace(/,|\|/g, '');
+								if (str !== "")
+								{
+									st[i] = str;
+								}
+							}
+						} else
+						{
+							st[0] = $.trim(spa.text());
+						}
+					}
+				}
+				*/
+				if (typeof metaObj["actor"] === "undefined")
+					return st[0] = "-";
+				if (metaObj["actor"].length > 1)
+				{
+					for (let i = 0; i < metaObj["actor"].length; i++)
+					{
+							st[i] = metaObj["actor"][i]["name"];
+					}
+				} else
+				{
+					st[0] = metaObj["actor"]["name"];
+				}
+				return st;
+			case "xml":
+				/*
+				s = $(doc).contents().find(".credit_summary_item > .inline");
 
 				for (let i = 0; i < s.length; i++)
 				{
@@ -1251,32 +1395,18 @@ function GetContentF()
 					}
 				}
 				return st;
-			case "xml":
-				s = $(doc).contents().find(".credit_summary_item > .inline");
-
-				for (let i = 0; i < s.length; i++)
+				*/
+				if (typeof metaObj["actor"] === "undefined")
+					return st[0] = "-";
+				if (metaObj["actor"].length > 1)
 				{
-					if (s.contents()[i].nodeValue.indexOf("Star") !== -1)
+					for (let i = 0; i < metaObj["actor"].length; i++)
 					{
-						//console.log(s.contents()[i]);
-						//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
-						spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
-						if (spa.length > 1)
-						{
-							for (let i = 0; i < spa.length; i++)
-							{
-								str = $.trim($(spa[i]).text());
-								str = str.replace(/,|\|/g, '');
-								if (str !== "")
-								{
-									st[i] = str;
-								}
-							}
-						} else
-						{
-							st[0] = $.trim(spa.text());
-						}
+						st[i] = metaObj["actor"][i]["name"];
 					}
+				} else
+				{
+					st[0] = metaObj["actor"]["name"];
 				}
 				return st;
 			default:
@@ -1341,7 +1471,10 @@ function GetContentF()
 					if (debug) console.log(s);
 					return StripNewLines($.trim(s));
 				case "xml":
-					return s = StripNewLines($.trim($(doc).contents().find(".summary_text").text()));
+					//return s = StripNewLines($.trim($(doc).contents().find(".summary_text").text()));
+					if (typeof metaObj["description"] === "undefined")
+						return "-";
+					return metaObj["description"];
 				default:
 					alert("fun:GetContent(what).Summary(" + what + "," + doc + "). default switch");
 					break;
@@ -1387,12 +1520,12 @@ function GetContentF()
 					}
 					return obj;
 				case "rottenTomatoes":
-					//names = $(doc).contents().find("#movieSection");
-					//console.log(doc);
-					//console.log(names);
+					names = $(doc).find("#search-results-root").children();
+					console.log(doc);
+					console.log(names);
 					//console.log(names.length);
-					//for (let i = 0; i < names.length; i++)
-					//{
+					for (let i = 0; i < names.length; i++)
+					{
 					//	if (debug)
 					//	{
 					//		console.log(names[i]);
@@ -1400,9 +1533,9 @@ function GetContentF()
 					//		console.log(cache[id]["stars"][0]);
 					//		console.log($(names[i]).text().includes(cache[id]["stars"][0]));
 					//	}
-						//if ($(names[i]).text().includes(cache[id]["stars"][0]))
-							//el = names[i].parent().parent().parent();
-					//}
+						if ($(names[i]).text().includes(cache[id]["stars"][0]))
+							el = names[i].parent().parent().parent();
+					}
 					//el = $(doc).contents().find("div.most_wanted");
 					if (typeof el === "undefined")
 					{
@@ -1412,15 +1545,15 @@ function GetContentF()
 						};
 					}
 
-					//obj.url = "https://www.rottentomatoes.com" + el.find("p.name a").attr("data-url");
-					//obj.score = parseInt(el.find("div.rating").text().split(".").join(""));
-					//if (debug)
-					//{
-					//	console.log(doc);
-					//	console.log(names);
-					//	console.log(el);
-					//	console.log(obj);
-					//}
+					obj.url = "https://www.rottentomatoes.com" + el.find("p.name a").attr("data-url");
+					obj.score = parseInt(el.find("div.rating").text().split(".").join(""));
+					if (debug)
+					{
+						console.log(doc);
+						console.log(names);
+						console.log(el);
+						console.log(obj);
+					}
 					return obj;
 				case "tmdb":
 					el = $(doc).contents().find("div.item")[0];
@@ -1451,6 +1584,34 @@ function GetContentF()
 	//Function get ratings from sites
 	//End
 
+
+	//Start
+	//Function get Poster of movie
+	function Image(what, doc)
+	{
+		try
+		{
+			var i;
+
+			switch (what)
+			{
+				case "page":
+					if (typeof metaObj.image === "undefined")
+						return "-";
+					return metaObj.image;
+				case "xml":
+					if (typeof metaObj.image === "undefined")
+						return "-";
+					return metaObj.image;
+				default:
+					alert("fun:GetContent(what).Image(" + what + "," + doc + "). default switch");
+					break;
+			}
+		} catch (e) { console.error(e); }
+	}
+	//Function get Poster of movie
+	//End
+
 	return {
 		connects: Connects,
 		age: Age,
@@ -1462,7 +1623,8 @@ function GetContentF()
 		stars: Stars,
 		genre: Genre,
 		summary: Summary,
-		ratings: Ratings
+		ratings: Ratings,
+		image: Image
 	};
 }
 //Function get Content
@@ -1515,7 +1677,7 @@ function xmlIMDB(what, url)
 					{
 						if (debug) console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						console.log(doc);
+						//console.log(doc);
 						resolve(AddCache("movieXML", "/" + id + "/", doc));
 					},
 					onerror: function (e)
@@ -1557,15 +1719,16 @@ function xmlIMDB(what, url)
 					{
 						if (debug) console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						AddCache("rottenTomatoes", "/" + id + "/", doc);
-						console.warn($(doc).contents().find("#movieSection"));
-						$('<iframe>', {
-						srcdoc: $.trim(StripNewLines(response.responseText)),
-						referrerpolicy: "no-referrer",
-						id: 'imdbe_iframe',
-						frameborder: 0,
-						width: 1000
-						}).insertAfter('#footer');
+						AddCache("rottenTomatoes", "/" + id + "/", doc.body);
+						//console.warn($(doc).find("#movieSection"));
+
+						//$('<iframe>', {
+						//srcdoc: $.trim(StripNewLines(response.responseText)),
+						//referrerpolicy: "no-referrer",
+						//id: 'imdbe_iframe',
+						//frameborder: 0,
+						//width: 1000
+						//}).insertAfter('#footer');
 						
 						resolve(ShowRatings(document.URL, "rottenTomatoes"));
 					},
@@ -1694,7 +1857,7 @@ function ShowGenre(id, row)
 //End
 
 //Start
-//Function show genre on people page
+//Function show Connections on movie page
 function ShowConnections(url)
 {
 	var id = url.match(/\/(tt\d+)\//)[1];
@@ -1783,8 +1946,9 @@ function ShowConnections(url)
 		console.log($("#filmography"));
 		$("#filmography").append($("<div class=article></div>").html("No Connections"));
 	}
+	SetEvents("connections");
 }
-//Function show genre on people page
+//Function show Connections on movie page
 //End
 
 
@@ -2001,7 +2165,8 @@ function SetOption()
 	$("#wrapper").prepend(settingsDiv);
 	$("#imdbe_settings").hide();
 	UIValues();
-	SetEvents();
+	SetEvents("setting");
+	SetEvents("rating");
 }
 //Function place option button and html option
 //End
@@ -2026,81 +2191,94 @@ function UIValues()
 
 //Start
 //Function set events
-function SetEvents()
+function SetEvents(what)
 {
-	$("#imdbe_setbutton").click(function ()
+	switch (what)
 	{
-		$("#imdbe_settings").toggle(1000);
-	});
+		case "setting":
+			$("#imdbe_setbutton").click(function ()
+			{
+				$("#imdbe_settings").toggle(1000);
+			});
 
-	$("#imdbe_hide").click(function ()
-	{
-		UpdateGM("options");
-		$("#imdbe_settings").toggle(1000);
-	});
+			$("#imdbe_hide").click(function ()
+			{
+				UpdateGM("options");
+				$("#imdbe_settings").toggle(1000);
+			});
 
-	$("#imdbe_clear").click(function ()
-	{
-		DeleteValues("imdbe_cache");
-	});
+			$("#imdbe_clear").click(function ()
+			{
+				DeleteValues("imdbe_cache");
+			});
 
-	$("#imdbe_debug").change(function ()
-	{
-		options.debug = $(this).prop("checked");
-		debug = $(this).prop("checked");
-	});
+			$("#imdbe_debug").change(function ()
+			{
+				options.debug = $(this).prop("checked");
+				debug = $(this).prop("checked");
+			});
 
-	$("#imdbe_age").change(function ()
-	{
-		options.age = $(this).prop("checked");
-	});
+			$("#imdbe_age").change(function ()
+			{
+				options.age = $(this).prop("checked");
+			});
 
-	$("#imdbe_connections").change(function ()
-	{
-		options.connections = $(this).prop("checked");
-	});
+			$("#imdbe_connections").change(function ()
+			{
+				options.connections = $(this).prop("checked");
+			});
 
-	$("#imdbe_genre").change(function ()
-	{
-		options.genre = $(this).prop("checked");
-	});
+			$("#imdbe_genre").change(function ()
+			{
+				options.genre = $(this).prop("checked");
+			});
 
-	$("#imdbe_trailer").change(function ()
-	{
-		options.trailer = $(this).prop("checked");
-	});
-
-	//RATINGS!!!!!!!!!!
-	$("#imdbe_additionalRatings").change(function ()
-	{
-		options.additionalRatings["on"] = $(this).prop("checked");
-	});
-	$("#imdbe_kinopoisk").change(function ()
-	{
-		options.additionalRatings["kinopoisk"] = $(this).prop("checked");
-	});
-	$("#imdbe_rottenTomatoes").change(function ()
-	{
-		options.additionalRatings["rottenTomatoes"] = $(this).prop("checked");
-	});
-	$("#imdbe_rMovies").change(function ()
-	{
-		options.additionalRatings["rMovies"] = $(this).prop("checked");
-	});
-	$("#imdbe_tmdb").change(function ()
-	{
-		options.additionalRatings["tmdb"] = $(this).prop("checked");
-	});
-	//RATINGS!!!!!!!!!!
-
-	setTimeout(function ()
-	{
-		$("#imdbe_divconnections").find(".head").click(function ()
-		{
-			$(this).next(".filmo-category-section").toggle(500);
-		});
-	}, oneSecond * 2);
+			$("#imdbe_trailer").change(function ()
+			{
+				options.trailer = $(this).prop("checked");
+			});
+			break;
+		case "rating":
+			//RATINGS!!!!!!!!!!
+			$("#imdbe_additionalRatings").change(function ()
+			{
+				options.additionalRatings["on"] = $(this).prop("checked");
+			});
+			$("#imdbe_kinopoisk").change(function ()
+			{
+				options.additionalRatings["kinopoisk"] = $(this).prop("checked");
+			});
+			$("#imdbe_rottenTomatoes").change(function ()
+			{
+				options.additionalRatings["rottenTomatoes"] = $(this).prop("checked");
+			});
+			$("#imdbe_rMovies").change(function ()
+			{
+				options.additionalRatings["rMovies"] = $(this).prop("checked");
+			});
+			$("#imdbe_tmdb").change(function ()
+			{
+				options.additionalRatings["tmdb"] = $(this).prop("checked");
+			});
+			//RATINGS!!!!!!!!!!
+			break;
+		case "connections":
+			$("#imdbe_divconnections").find(".head").click(function ()
+			{
+				$(this).next(".filmo-category-section").toggle(500);
+			});
+			break;
+		case "clickFilm":
+			$("#filmography > div.head").click(function ()
+			{
+				GetContent.genre();
+			});
+			break;
+		default:
+			console.error("SetEvents-" + what);
+			break;
 	//console.log($("#imdbe_divconnections").find(".head"));
+}
 }
 //Function set events
 //End
@@ -2122,7 +2300,7 @@ function StripNewLines(string)
 //Function Get String Score
 function GetStringScore(num)
 {
-	if (typeof num === "string" || num === null)
+	if (typeof num === "string" || num === null || typeof num === "undefined")
 		return "tbd";
 	else if (num >= 60)
 		return "favorable";
@@ -2163,5 +2341,7 @@ function GetStringScore(num)
 	9)Show months of movies on peaple page... maybe
 	 9.1)On search too... maybe
 	10)Make event in different functions(For connections, for options and so on)
-✓	11)Add search trailer on youtube if trailer not avalible		//DONE 0.1.02
+✓	 11)Add search trailer on youtube if trailer not avalible		//DONE 0.1.02
+	12)Make pop-up for movies
+	13)Make pop-up for people
 TODO ENDS */
