@@ -5,7 +5,7 @@
 // @include     https://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      TiLied
-// @version     0.1.05
+// @version     0.1.06
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -37,7 +37,9 @@ var options = {},
 	versionCache,
 	connections,
 	trailer,
-	hide;
+	hide,
+	popupM,
+	popupP;
 
 var GetContent = GetContentF(),
 	metaObj;
@@ -72,7 +74,7 @@ void function Main()
 	//Set settings or create
 	SetSettings(function ()
 	{
-		//Check on what page we are and switch. Currently only on pin page
+		//Check on what page we are and switch.
 		SwitchPage();
 		//Place UI Options
 		SetOption();
@@ -344,6 +346,26 @@ function SetOptionsObj()
 		{
 			trailer = options.trailer;
 		}
+
+		//popup for movies option
+		if (typeof options.popupM === "undefined")
+		{
+			options.popupM = false;
+			popupM = options.popupM;
+		} else
+		{
+			popupM = options.popupM;
+		}
+
+		//popup for people option
+		if (typeof options.popupP === "undefined")
+		{
+			options.popupP = false;
+			popupP = options.popupP;
+		} else
+		{
+			popupP = options.popupP;
+		}
 	} catch (e) { console.error(e); }
 }
 
@@ -389,7 +411,10 @@ function SwitchPage()
 	switch (GetPage(document.URL))
 	{
 		case 1:
+			SetUpForFront();
+			break;
 		case 2:
+			SetUpForSearch();
 			break;
 		case 3:
 			AddCache("movie", document.URL);
@@ -397,6 +422,7 @@ function SwitchPage()
 			break;
 		case 4:
 			AddCache("connects", document.URL);
+			SetUpForConnects();
 			break;
 		case 5:
 			SetUpForPeople();
@@ -452,6 +478,30 @@ function GetPage(url)
 //-------------------------
 
 //Start
+//Function check option on this Front page
+function SetUpForFront()
+{
+	if (popupM)
+	{
+		SetEvents("popupM");
+	}
+}
+//Function check option on this Front page
+//End
+
+//Start
+//Function check option on this Search page
+function SetUpForSearch()
+{
+	if (popupM)
+	{
+		SetEvents("popupM");
+	}
+}
+//Function check option on this Search page
+//End
+
+//Start
 //Function check option on this people page
 function SetUpForPeople()
 {
@@ -466,8 +516,27 @@ function SetUpForPeople()
 		//event detecting click
 		SetEvents("clickFilm");
 	}
+
+	if (popupM)
+	{
+		SetEvents("popupM");
+	}
 }
 //Function check option on this people page
+//End
+
+
+
+//Start
+//Function check option on this Connects page
+function SetUpForConnects()
+{
+	if (popupM)
+	{
+		SetEvents("popupM");
+	}
+}
+//Function check option on this Connects page
 //End
 
 //Start
@@ -510,6 +579,11 @@ function SetUpForMovie()
 	if (hide["on"])
 	{
 		//TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	}
+
+	if (popupM)
+	{
+		SetEvents("popupM");
 	}
 }
 //Function check option on this movie page
@@ -1011,7 +1085,6 @@ function GetContentF()
 			case "xml":
 				try
 				{
-					//FIND FIX!!!!!!!!!!!!!!!!!!!!!!!! TODO
 					//return ($(doc).contents().find("h1[itemprop='name']").contents()[1] === undefined ? "-" : $.trim($(doc).contents().find("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML));
 					if (typeof metaObj.datePublished === "undefined")
 						return "-";
@@ -2061,6 +2134,174 @@ function ShowRatings(url, which)
 
 
 //Start
+//Function show PopUp 
+async function ShowPopUp(event, what)
+{
+	var id = $(event.target).attr("href").match(/\/(tt\d+)|\/(nm\d+)/)[1];
+
+	const div = $("<div id=imdbe_popupDiv class='tooltip'></div>").html("LOADING...");
+
+	var tPosX = event.pageX - 300;
+	var tPosY = event.pageY + 25;
+
+	var html = "<div class='lister-item imdbe_mode-advanced'>";
+
+	if ($("#imdbe_popupDiv").length === 0)
+	{
+		div.appendTo('body');
+		$("#imdbe_popupDiv").hide();
+	}
+	//console.log(id);
+
+	switch (what)
+	{
+		case "movie":
+			//TODO RATINGSSSSSSSSSSSSSSS!!!!!!!!!!!!!!!!!!!!!!!!!!
+			$('div.tooltip').css({ 'position': 'absolute', 'top': tPosY, 'left': tPosX });
+			$("#imdbe_popupDiv").toggle(1000);
+			if ($.isEmptyObject(cache[id]))
+				await xmlIMDB("movie", "/" + id + "/");
+			//console.log($("#imdbe_popupDiv"));
+			$("#imdbe_popupDiv")[0].innerHTML = "";
+			html += "<div class='imdbe_lister-item-image float-left'><img alt='" + cache[id]["name"] + "' class='loadlate' src='" + cache[id]["image"] + "' width='67' height='98'>\
+					</div>\
+ <div class='imdbe_lister-item-content'><h3 class='lister-item-header'> <a href='-'>" + cache[id]["name"] + "</a><span class='lister-item-year text-muted unbold'>(" + cache[id]["imdbYear"] + ")</span></h3>\
+			<p class='text-muted'><span class='genre'>";
+			for (let i = 0; i < Object.keys(cache[id]["genres"]).length; i++)
+			{
+				if (i === (Object.keys(cache[id]["genres"]).length - 1))
+				{
+					html += Object.keys(cache[id]["genres"])[i];
+				}
+				else
+				{
+					html += Object.keys(cache[id]["genres"])[i] + ", ";
+				}
+			}
+			html += "</span></p>";
+
+			//TODO HERE RATINGS!!!!!!!!!!!!!!!!!!!!
+
+			html += "<p class='text-muted'>" + cache[id]["summary"] + "</p><p class=''>Directors:";
+
+			if (typeof cache[id]["directors"] !== "string")
+			{
+				for (let i = 0; i < Object.keys(cache[id]["directors"]).length; i++)
+				{
+					if (i === (Object.keys(cache[id]["directors"]).length - 1))
+					{
+						html += "<a href='-'>" + Object.values(cache[id]["directors"])[i] + "</a>";
+					}
+					else
+					{
+						html += "<a href='-'>" + Object.values(cache[id]["directors"])[i] + "</a>, ";
+					}
+				}
+			} else
+			{
+				html += "<a href='-'>" + Object.values(cache[id]["directors"]) + "</a>";
+			}
+
+			html += "<span class='ghost'> | </span>Stars:";
+
+			if (typeof cache[id]["stars"] !== "string")
+			{
+				for (let i = 0; i < Object.keys(cache[id]["stars"]).length; i++)
+				{
+					if (i === (Object.keys(cache[id]["stars"]).length - 1))
+					{
+						html += "<a href='-'>" + Object.values(cache[id]["stars"])[i] + "</a>";
+					}
+					else
+					{
+						html += "<a href='-'>" + Object.values(cache[id]["stars"])[i] + "</a>, ";
+					}
+				}
+			} else
+			{
+				html += "<a href='-'>" + Object.values(cache[id]["stars"]) + "</a>";
+			}
+
+			html += "<span class='ghost'> | </span>Writers:";
+
+			if (typeof cache[id]["writers"] !== "string")
+			{
+				for (let i = 0; i < Object.keys(cache[id]["writers"]).length; i++)
+				{
+					if (i === (Object.keys(cache[id]["writers"]).length - 1))
+					{
+						html += "<a href='-'>" + Object.values(cache[id]["writers"])[i] + "</a>";
+					}
+					else
+					{
+						html += "<a href='-'>" + Object.values(cache[id]["writers"])[i] + "</a>, ";
+					}
+				}
+			} else
+			{
+				html += "<a href='-'>" + Object.values(cache[id]["writers"]) + "</a>";
+			}
+
+			html += "</p></div></div>";
+
+			//console.info(html);
+
+			$("#imdbe_popupDiv").append(html);
+			/*
+		<div class="lister-item mode-advanced">
+			 <div class="lister-item-image float-left">
+				<img alt="Avengers: Infinity War" class="loadlate" data-tconst="tt4154756" src="https://m.media-amazon.com/images/M/MV5BMjMxNjY2MDU1OV5BMl5BanBnXkFtZTgwNzY1MTUwNTM@._V1_UX67_CR0,0,67,98_AL_.jpg" width="67" height="98">
+			</div>
+        <div class="lister-item-content">
+			<h3 class="lister-item-header">
+				<a href="/title/tt4154756/?ref_=adv_li_tt">Avengers: Infinity War</a>
+				<span class="lister-item-year text-muted unbold">(2018)</span>
+			</h3>
+		<p class="text-muted ">
+            <span class="genre">Action, Adventure, Fantasy</span>
+		</p>
+    <div class="ratings-bar">
+		<div class="inline-block ratings-imdb-rating" name="ir" data-value="8.6">
+			<span class="global-sprite rating-star imdb-rating"></span>
+				<strong>8.6</strong>
+		</div>
+        <div class="inline-block ratings-metascore">
+			<span class="metascore  favorable">68</span>
+			Metascore
+        </div>
+    </div>
+
+	<p class="text-muted">
+    The Avengers and their allies must be willing to sacrifice all in an attempt to defeat the powerful Thanos before his blitz of devastation and ruin puts an end to the universe.</p>
+    <p class="">
+    Directors:
+		<a href="/name/nm0751577/?ref_=adv_li_dr_0">Anthony Russo</a>,
+		<a href="/name/nm0751648/?ref_=adv_li_dr_1">Joe Russo</a>
+                 <span class="ghost">|</span>
+    Stars:
+		<a href="/name/nm0000375/?ref_=adv_li_st_0">Robert Downey Jr.</a>,
+		<a href="/name/nm1165110/?ref_=adv_li_st_1">Chris Hemsworth</a>,
+		<a href="/name/nm0749263/?ref_=adv_li_st_2">Mark Ruffalo</a>,
+		<a href="/name/nm0262635/?ref_=adv_li_st_3">Chris Evans</a>
+    </p>
+    </div>
+    </div>
+			 */
+			break;
+		case "people":
+			//TODO if popup is blocking hide it
+			break;
+		default:
+			alert("fun:ShowPopUp(href, what).Ratings(" + href + "," + what + "). default switch");
+			break;
+	}
+	return;
+}
+//Function show PopUp 
+//End
+
+
+//Start
 //Function show Youtube Url search trailer on movies/tv page
 function ShowYoutubeUrl(url)
 {
@@ -2128,6 +2369,32 @@ function SetCSS()
 	padding-left:20px;\
 }"));
 
+
+	$("head").append($("<style type=text/css></style>").text("#imdbe_popupDiv { \
+	background: #fbfbfb;\
+	z-index: 500;\
+	max-width: 650px;\
+	max-height: 250px;\
+	border: 1px solid #BBB;\
+}"));
+
+	$("head").append($("<style type=text/css></style>").text(".imdbe_mode-advanced { \
+	font-size: 13px;\
+	padding: 5px 10px;\
+}"));
+
+	$("head").append($("<style type=text/css></style>").text(".imdbe_lister-item-image { \
+	display: inline-block;\
+	vertical-align: top;\
+	margin-right: 20px;\
+}"));
+
+	$("head").append($("<style type=text/css></style>").text(".imdbe_lister-item-content { \
+	max-width: 84%;\
+	display: inline-block;\
+	vertical-align: top;\
+}"));
+
 	$("head").append($("<!--End of IMDB Enhancement v" + GM.info.script.version + " CSS-->"));
 }
 //Function place css
@@ -2147,6 +2414,7 @@ function SetOption()
 	<input type=checkbox name=genre id=imdbe_genre >Show genre</input><br>\
 	<input type=checkbox name=trailer id=imdbe_trailer >Show trailer</input><br><br> \
 	<input type=checkbox name=connections id=imdbe_connections >Show connections</input><br><br> \
+	<input type=checkbox name=popupM id=imdbe_popupM >Popup for movies</input><br><br> \
 	<input type=checkbox name=additionalRatings id=imdbe_additionalRatings >Additional Ratings</input><br> \
 		<fieldset id=imdbe_field>\
 		<input type=checkbox name=kinopoisk id=imdbe_kinopoisk ><a href='https://www.kinopoisk.ru/' target='_blank'>Kinopoisk</a></input><br> \
@@ -2184,6 +2452,7 @@ function UIValues()
 	$("#imdbe_rottenTomatoes").prop("checked", additionalRatings["rottenTomatoes"]);
 	$("#imdbe_rMovies").prop("checked", additionalRatings["rMovies"]);
 	$("#imdbe_tmdb").prop("checked", additionalRatings["tmdb"]);
+	$("#imdbe_popupM").prop("checked", popupM);
 	$("#imdbe_debug").prop("checked", debug);
 }
 //Function set events
@@ -2237,6 +2506,11 @@ function SetEvents(what)
 			{
 				options.trailer = $(this).prop("checked");
 			});
+
+			$("#imdbe_popupM").change(function ()
+			{
+				options.popupM = $(this).prop("checked");
+			});
 			break;
 		case "rating":
 			//RATINGS!!!!!!!!!!
@@ -2272,6 +2546,26 @@ function SetEvents(what)
 			$("#filmography > div.head").click(function ()
 			{
 				GetContent.genre();
+			});
+			break;
+		case "popupM":
+			$("a").hover(function (e)
+			{
+				if ($(e.target).attr("href").includes("title/tt"))
+				{
+					if (debug) console.log(e.target);
+					ShowPopUp(e, "movie");
+				}
+			});
+			break;
+		case "popupP":
+			$("a").hover(function (e)
+			{
+				if ($(e.target).attr("href").includes("name/nm"))
+				{
+					if (debug) console.log(e.target);
+					ShowPopUp(e, "people");
+				}
 			});
 			break;
 		default:
@@ -2327,7 +2621,7 @@ function GetStringScore(num)
 ✓	3)Add genres	//DONE 0.0.08
 ✓	 3.0)Its done but only works when reload second time, i need detect when ALL xml requests are finished and call function ShowGenres		//DONE 0.0.09
 	 3.1)on search(compact) too
-	 3.2)Make reqests only if tab(actor/self/soundrack etc.) open and set event on other tabs
+✓	 3.2)Make reqests only if tab(actor/self/soundrack etc.) open and set event on other tabs		//DONE 0.1.05
 	4)Change a bit Menu
 	5)Dark theme?
 ✓	6)Connections to movies, almost done in 0.0.05		//DONE 0.0.07
@@ -2340,8 +2634,9 @@ function GetStringScore(num)
 	 8.3)Recently Viewed
 	9)Show months of movies on peaple page... maybe
 	 9.1)On search too... maybe
-	10)Make event in different functions(For connections, for options and so on)
+✓	 10)Make event in different functions(For connections, for options and so on)		//DONE 0.1.05
 ✓	 11)Add search trailer on youtube if trailer not avalible		//DONE 0.1.02
-	12)Make pop-up for movies
+✓	 12)Make pop-up for movies		//DONE 0.1.06
+	 12.1)Clean event when unckecking in options!!!!
 	13)Make pop-up for people
 TODO ENDS */
