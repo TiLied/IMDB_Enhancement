@@ -5,7 +5,7 @@
 // @include     https://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      TiLied
-// @version     0.1.06
+// @version     0.1.07
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -1639,6 +1639,8 @@ function GetContentF()
 					}
 					obj.url = "https://www.themoviedb.org" + $(el).contents().find("div a").attr("href");
 					obj.score = parseInt($(el).contents().find("div.user_score_chart").attr("data-percent"));
+					if (obj.score === 0.0)
+						obj.score = "tbd";
 					if (debug)
 					{
 						console.log(doc);
@@ -2137,11 +2139,14 @@ function ShowRatings(url, which)
 //Function show PopUp 
 async function ShowPopUp(event, what)
 {
+	if ($(event.target).attr("href").match(/(pro)/) || $(event.target).attr("href").match(/\/(tt\d+\/(characters|fullcredits|reviews|trivia|faq|keywords|releaseinfo))/))
+		return;
+
 	var id = $(event.target).attr("href").match(/\/(tt\d+)|\/(nm\d+)/)[1];
 
 	const div = $("<div id=imdbe_popupDiv class='tooltip'></div>").html("LOADING...");
 
-	var tPosX = event.pageX - 300;
+	var tPosX = event.pageX - 250;
 	var tPosY = event.pageY + 25;
 
 	var html = "<div class='lister-item imdbe_mode-advanced'>";
@@ -2594,7 +2599,7 @@ function StripNewLines(string)
 //Function Get String Score
 function GetStringScore(num)
 {
-	if (typeof num === "string" || num === null || typeof num === "undefined")
+	if (typeof num === "string" || num === null || typeof num === "undefined" || isNaN(num))
 		return "tbd";
 	else if (num >= 60)
 		return "favorable";
