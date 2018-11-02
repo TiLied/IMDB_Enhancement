@@ -5,7 +5,7 @@
 // @include     https://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      TiLied
-// @version     0.1.07
+// @version     0.2.00
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -42,7 +42,8 @@ var options = {},
 	popupP;
 
 var GetContent = GetContentF(),
-	metaObj;
+	metaObj,
+	timeoutID;
 
 /**
 * ENUM, BECAUSE WHY NOT ¯\_(ツ)_/¯
@@ -562,7 +563,7 @@ function SetUpForMovie()
 
 		if (additionalRatings["rottenTomatoes"])
 		{
-			//ShowRatings(document.URL, "rottenTomatoes");
+			ShowRatings(document.URL, "rottenTomatoes");
 		}
 
 		if (additionalRatings["rMovies"])
@@ -597,7 +598,7 @@ function SetUpForMovie()
 //Function Add to Cache movie/and anything
 //what: movie,rating,connects
 //doc: optional for xml
-function AddCache(what, url, doc)
+async function AddCache(what, url, doc)
 {
 
 	var id = url.match(/\/(tt\d+)\//)[1];
@@ -749,13 +750,13 @@ function AddCache(what, url, doc)
 			{
 				if ($.isEmptyObject(cache[id]["ratings"]))
 				{
-					cache[id].ratings["kinopoisk"] = GetContent.ratings("kinopoisk", doc, id);
+					GetContent.ratings("kinopoisk", doc, id).then(obj => cache[id].ratings["kinopoisk"] = obj);
 					UpdateGM("cache");				
 				} else
 				{
 					if ($.isEmptyObject(cache[id]["ratings"]["kinopoisk"]))
 					{
-						cache[id].ratings["kinopoisk"] = GetContent.ratings("kinopoisk", doc, id);
+						GetContent.ratings("kinopoisk", doc, id).then(obj => cache[id].ratings["kinopoisk"] = obj);
 						UpdateGM("cache");	
 					}
 				}
@@ -772,13 +773,13 @@ function AddCache(what, url, doc)
 			{
 				if ($.isEmptyObject(cache[id]["ratings"]))
 				{
-					cache[id].ratings["rottenTomatoes"] = GetContent.ratings("rottenTomatoes", doc, id);
+					await GetContent.ratings("rottenTomatoes", doc, id).then(obj => cache[id].ratings["rottenTomatoes"] = obj);
 					UpdateGM("cache");
 				} else
 				{
 					if ($.isEmptyObject(cache[id]["ratings"]["rottenTomatoes"]))
 					{
-						cache[id].ratings["rottenTomatoes"] = GetContent.ratings("rottenTomatoes", doc, id);
+						await GetContent.ratings("rottenTomatoes", doc, id).then(obj => cache[id].ratings["rottenTomatoes"] = obj);
 						UpdateGM("cache");
 					}
 				}
@@ -795,13 +796,36 @@ function AddCache(what, url, doc)
 			{
 				if ($.isEmptyObject(cache[id]["ratings"]))
 				{
-					cache[id].ratings["tmdb"] = GetContent.ratings("tmdb", doc, id);
+					GetContent.ratings("tmdb", doc, id).then(obj => cache[id].ratings["tmdb"] = obj);
 					UpdateGM("cache");
 				} else
 				{
 					if ($.isEmptyObject(cache[id]["ratings"]["tmdb"]))
 					{
-						cache[id].ratings["tmdb"] = GetContent.ratings("tmdb", doc, id);
+						GetContent.ratings("tmdb", doc, id).then(obj => cache[id].ratings["tmdb"] = obj);
+						UpdateGM("cache");
+					}
+				}
+			}
+			break;
+		case "rMovies":
+			if (typeof cache[id] === "undefined")
+			{
+				//
+				//CANT BE TRUE?????????????????????????????????????
+				//
+				console.log("IMPOSIBLE ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+			} else
+			{
+				if ($.isEmptyObject(cache[id]["ratings"]))
+				{
+					await GetContent.ratings("rMovies", doc, id).then(obj => cache[id].ratings["rMovies"] = obj);
+					UpdateGM("cache");
+				} else
+				{
+					if ($.isEmptyObject(cache[id]["ratings"]["rMovies"]))
+					{
+						await GetContent.ratings("rMovies", doc, id).then(obj => cache[id].ratings["rMovies"] = obj);
 						UpdateGM("cache");
 					}
 				}
@@ -1559,7 +1583,7 @@ function GetContentF()
 
 	//Start
 	//Function get ratings from sites
-	function Ratings(what, doc, id)
+	async function Ratings(what, doc, id)
 	{
 		try
 		{
@@ -1567,7 +1591,9 @@ function GetContentF()
 				url,
 				el,
 				score,
-				names;
+				names,
+				d = doc,
+				div;
 			//
 			//TODO NEED CHECK FOR EXIST ELEMENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 			//
@@ -1593,23 +1619,39 @@ function GetContentF()
 					}
 					return obj;
 				case "rottenTomatoes":
-					names = $(doc).find("#search-results-root").children();
-					console.log(doc);
-					console.log(names);
-					//console.log(names.length);
-					for (let i = 0; i < names.length; i++)
+					url = $(d.body).contents().find("p.title > a").attr("href");
+
+					if (typeof url !== "undefined")
 					{
-					//	if (debug)
-					//	{
-					//		console.log(names[i]);
-					//		console.log($(names[i]).text());
-					//		console.log(cache[id]["stars"][0]);
-					//		console.log($(names[i]).text().includes(cache[id]["stars"][0]));
-					//	}
-						if ($(names[i]).text().includes(cache[id]["stars"][0]))
-							el = names[i].parent().parent().parent();
+						d = await xmlIMDB("xml", "/" + id + "/", url);
+						//AddCache("rMovies", document.URL, doc);
+					} else
+					{
+						url = $(d.body).contents().find("a[href^='https://www.rottentomatoes.com/']").attr("href");
+
+						if (typeof url === "undefined")
+						{
+							return obj = {
+								url: "https://www.rottentomatoes.com/search/?search=" + cache[id]["name"],
+								score: "N/A"
+							};
+						}
 					}
-					//el = $(doc).contents().find("div.most_wanted");
+
+					url = $(d.body).contents().find("a[href^='https://www.rottentomatoes.com/']").attr("href");
+					console.log(url);
+					if (typeof url === "undefined")
+					{
+						return obj = {
+							url: "https://www.rottentomatoes.com/search/?search=" + cache[id]["name"],
+							score: "N/A"
+						};
+					}
+
+					d = await xmlIMDB("xml", "/" + id + "/", url);
+
+					el = JSON.parse($(d.head).find("script[type='application/ld+json']").text());
+
 					if (typeof el === "undefined")
 					{
 						return obj = {
@@ -1618,12 +1660,12 @@ function GetContentF()
 						};
 					}
 
-					obj.url = "https://www.rottentomatoes.com" + el.find("p.name a").attr("data-url");
-					obj.score = parseInt(el.find("div.rating").text().split(".").join(""));
+					obj.url = url;
+					obj.score = el["aggregateRating"]["ratingValue"];
+
 					if (debug)
 					{
 						console.log(doc);
-						console.log(names);
 						console.log(el);
 						console.log(obj);
 					}
@@ -1641,6 +1683,59 @@ function GetContentF()
 					obj.score = parseInt($(el).contents().find("div.user_score_chart").attr("data-percent"));
 					if (obj.score === 0.0)
 						obj.score = "tbd";
+					if (debug)
+					{
+						console.log(doc);
+						console.log(el);
+						console.log(obj);
+					}
+					return obj;
+				case "rMovies":
+					url = $(d.body).contents().find("p.title > a").attr("href");
+
+					if (typeof url !== "undefined")
+					{
+						d = await xmlIMDB("xml", "/" + id + "/", url);
+						//AddCache("rottenTomatoes", document.URL, doc);
+					} else
+					{
+						url = $(d.body).contents().find("a[href^='https://youpoll.me/']:odd").attr("href");
+
+						if (typeof url === "undefined")
+						{
+							return obj = {
+								url: "https://www.reddit.com/r/movies/search?q=" + cache[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
+								score: "N/A"
+							};
+						}
+					}
+
+					obj.url = url;
+
+					url = $(d.body).contents().find("a[href^='https://youpoll.me/']:odd").attr("href");
+
+					if (typeof url === "undefined")
+					{
+						return obj = {
+							url: "https://www.reddit.com/r/movies/search?q=" + cache[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
+							score: "N/A"
+						};
+					}
+
+					d = await xmlIMDB("xml", "/" + id + "/", url);
+
+					el = $(d.body).find("span.rating-mean-value").text().split(".").join("");
+
+					if (typeof el === "undefined")
+					{
+						return obj = {
+							url: "https://www.reddit.com/r/movies/search?q=" + cache[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
+							score: "N/A"
+						};
+					}
+
+					obj.score = parseInt(el.slice(0, 2));
+
 					if (debug)
 					{
 						console.log(doc);
@@ -1711,7 +1806,7 @@ function GetContentF()
 
 //Start
 //Function xml/iframe on imdb
-function xmlIMDB(what, url)
+function xmlIMDB(what, url, urlxml)
 {
 	var id = url.match(/\/(tt\d+)\//)[1],
 		parser = new DOMParser(),
@@ -1773,8 +1868,8 @@ function xmlIMDB(what, url)
 					{
 						if (debug) console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						AddCache("kinopoisk", "/" + id + "/", doc.body);
-						resolve(ShowRatings(document.URL, "kinopoisk"));
+						resolve(AddCache("kinopoisk", "/" + id + "/", doc.body));
+						//resolve(ShowRatings(document.URL, "kinopoisk"));
 					},
 					onerror: function (e)
 					{
@@ -1787,25 +1882,15 @@ function xmlIMDB(what, url)
 			{
 				GM.xmlHttpRequest({
 					method: "GET",
-					url: "https://www.rottentomatoes.com/search/?search=" + cache[id]["name"],
+					url: "https://i.reddit.com/r/discussionarchive/search?q=" + cache[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
 					headers: { "User-agent": "Mozilla/5.0 (Linux; Android 4.0.4; Galaxy Nexus Build/IMM76B) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.133 Mobile Safari/535.19", "Accept": "document" },
 					timeout: oneSecond * 5,
 					onload: function (response)
 					{
 						if (debug) console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						AddCache("rottenTomatoes", "/" + id + "/", doc.body);
-						//console.warn($(doc).find("#movieSection"));
-
-						//$('<iframe>', {
-						//srcdoc: $.trim(StripNewLines(response.responseText)),
-						//referrerpolicy: "no-referrer",
-						//id: 'imdbe_iframe',
-						//frameborder: 0,
-						//width: 1000
-						//}).insertAfter('#footer');
-						
-						resolve(ShowRatings(document.URL, "rottenTomatoes"));
+						resolve(AddCache("rottenTomatoes", "/" + id + "/", doc));
+						//resolve(ShowRatings(document.URL, "rottenTomatoes"));
 					},
 					onerror: function (e)
 					{
@@ -1825,8 +1910,29 @@ function xmlIMDB(what, url)
 					{
 						if (debug) console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						AddCache("tmdb", "/" + id + "/", doc.body);
-						resolve(ShowRatings(document.URL, "tmdb"));
+						resolve(AddCache("tmdb", "/" + id + "/", doc.body));
+						//resolve(ShowRatings(document.URL, "tmdb"));
+					},
+					onerror: function (e)
+					{
+						reject(console.error(e));
+					}
+				});
+			});
+		case "rMovies":
+			return new Promise(function (resolve, reject)
+			{
+				GM.xmlHttpRequest({
+					method: "GET",
+					url: "https://i.reddit.com/r/discussionarchive/search?q=" + cache[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
+					headers: { "User-agent": "Mozilla/5.0 (Linux; Android 4.0.4; Galaxy Nexus Build/IMM76B) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.133 Mobile Safari/535.19", "Accept": "document" },
+					timeout: oneSecond * 5,
+					onload: function (response)
+					{
+						if (debug) console.log(response);
+						doc = parser.parseFromString(response.responseText, "text/html");
+						resolve(AddCache("rMovies", "/" + id + "/", doc));
+						//resolve(ShowRatings(document.URL, "rMovies"));
 					},
 					onerror: function (e)
 					{
@@ -1835,39 +1941,27 @@ function xmlIMDB(what, url)
 				});
 			});
 		case "xml":
-			GM.xmlHttpRequest({
-				method: "GET",
-				//url: "https://www.reddit.com/r/movies/comments/6yakju/rami_malek_as_freddie_mercury_in_bohemian_rhapsody/",
-				url: "https://www.imdb.com/title/tt0409799/movieconnections",
-				//url: "https://www.imdb.com/name/nm2093747/?ref_=tt_cl_t12",
-				headers: { "User-agent": navigator.userAgent, "Accept": "document" },
-				onload: function (response)
-				{
-					//.replace(/[\s\S]*?(<div id="connections_content" class="header">)/ig, '')
-					//console.log($.trim(StripNewLines(response.responseText)));
-					console.log(response);
-					//document.getElementById('footer').insertAdjacentHTML('afterend', $.trim(StripNewLines(response.responseText)));
-					//$('<iframe>', {
-					//	srcdoc: $.trim(StripNewLines(response.responseText)),
-					//	//src: 'https://www.imdb.com/name/nm1653263/',
-					//	referrerpolicy: "no-referrer",
-					//	id: 'imdbe_iframe',
-					//	frameborder: 0,
-					//	width: 1000
-					//}).insertAfter('#footer');
-					parser = new DOMParser();
-					doc = parser.parseFromString(response.responseText, "text/html");
-					// returns a HTMLDocument, which also is a Document.
-					console.log($(doc).contents().find(".jumpto > a"));
-				},
-				onerror: function (response)
-				{
-					//.replace(/[\s\S]*?(<div id="connections_content" class="header">)/ig, '')
-					console.log(response);
-					//document.getElementById('footer').insertAdjacentHTML('afterend', StripNewLines(response.responseText));
-				}
+			return new Promise(function (resolve, reject)
+			{
+				GM.xmlHttpRequest({
+					method: "GET",
+					url: urlxml,
+					//headers: { "User-agent": navigator.userAgent, "Accept": "document" },
+					timeout: oneSecond * 5,
+					onload: function (response)
+					{
+						if (debug) console.log(response);
+						doc = parser.parseFromString(response.responseText, "text/html");
+						//AddCache("tmdb", "/" + id + "/", doc.body);
+						console.log(doc);
+						resolve(doc);
+					},
+					onerror: function (e)
+					{
+						reject(console.error(e));
+					}
+				});
 			});
-			break;
 	}
 }
 //Function xml on imdb
@@ -2029,7 +2123,7 @@ function ShowConnections(url)
 
 //Start
 //Function show Ratings on movies/tv page
-function ShowRatings(url, which)
+async function ShowRatings(url, which)
 {
 	try
 	{
@@ -2049,7 +2143,7 @@ function ShowRatings(url, which)
 			case "kinopoisk":
 				if ($.isEmptyObject(cache[id]["ratings"]["kinopoisk"]))
 				{
-					xmlIMDB("kinopoisk", document.URL);
+					await xmlIMDB("kinopoisk", document.URL);
 					return;
 				}
 
@@ -2073,9 +2167,9 @@ function ShowRatings(url, which)
 				revBar.prepend(html);
 				break;
 			case "rottenTomatoes":
-				if ($.isEmptyObject(cache[id]["ratings"]["rottenTomatoes"]))
+				if (typeof cache[id]["ratings"]["rottenTomatoes"] === "undefined")
 				{
-					xmlIMDB("rottenTomatoes", document.URL);
+					await xmlIMDB("rottenTomatoes", document.URL);
 					return;
 				}
 
@@ -2101,7 +2195,7 @@ function ShowRatings(url, which)
 			case "tmdb":
 				if ($.isEmptyObject(cache[id]["ratings"]["tmdb"]))
 				{
-					xmlIMDB("tmdb", document.URL);
+					await xmlIMDB("tmdb", document.URL);
 					return;
 				}
 
@@ -2124,6 +2218,32 @@ function ShowRatings(url, which)
 
 				revBar.prepend(html);
 				break;
+			case "rMovies":
+				if ($.isEmptyObject(cache[id]["ratings"]["rMovies"]))
+				{
+					await xmlIMDB("rMovies", document.URL);
+					return;
+				}
+
+				html = "\
+				<div class='titleReviewBarItem'>\
+                <a href='" + cache[id]["ratings"]["rMovies"]["url"] + "'><div\
+                    class='rt-consensus metacriticScore score_" + GetStringScore(cache[id]["ratings"]["rMovies"]["score"]) + " titleReviewBarSubItem'><span>" + cache[id]["ratings"]["rMovies"]["score"] + "</span></div></a>\
+               <div class='titleReviewBarSubItem'>\
+                   <div>\
+                       <a href='" + cache[id]["ratings"]["rMovies"]["url"] + "'>r/Movies</a>\
+                   </div>\
+                   <div>\
+                       <span class='subText'>\
+                           From <a href='https://www.reddit.com/r/movies/' target='_blank'>r/Movies</a>\
+                       </span>\
+                   </div>\
+                </div>\
+				</div>\
+				<div class='divider'></div>";
+
+				revBar.prepend(html);
+				break;
 			default:
 				alert("fun:ShowRatings(" + url + "," + which + "). default switch");
 				break;
@@ -2137,9 +2257,9 @@ function ShowRatings(url, which)
 
 //Start
 //Function show PopUp 
-async function ShowPopUp(event, what)
+function ShowPopUp(event, what)
 {
-	if ($(event.target).attr("href").match(/(pro)/) || $(event.target).attr("href").match(/\/(tt\d+\/(characters|fullcredits|reviews|trivia|faq|keywords|releaseinfo))/))
+	if ($(event.target).attr("href").match(/(pro)/) || $(event.target).attr("href").match(/\/(tt\d+\/(characters|fullcredits|reviews|trivia|faq|keywords|releaseinfo|registration|videogallery|mediaindex|movieconnection))/))
 		return;
 
 	var id = $(event.target).attr("href").match(/\/(tt\d+)|\/(nm\d+)/)[1];
@@ -2162,96 +2282,100 @@ async function ShowPopUp(event, what)
 	{
 		case "movie":
 			//TODO RATINGSSSSSSSSSSSSSSS!!!!!!!!!!!!!!!!!!!!!!!!!!
-			$('div.tooltip').css({ 'position': 'absolute', 'top': tPosY, 'left': tPosX });
-			$("#imdbe_popupDiv").toggle(1000);
-			if ($.isEmptyObject(cache[id]))
-				await xmlIMDB("movie", "/" + id + "/");
-			//console.log($("#imdbe_popupDiv"));
-			$("#imdbe_popupDiv")[0].innerHTML = "";
-			html += "<div class='imdbe_lister-item-image float-left'><img alt='" + cache[id]["name"] + "' class='loadlate' src='" + cache[id]["image"] + "' width='67' height='98'>\
+			timeoutID = setTimeout(async function()
+			{
+				$("#imdbe_popupDiv").show(oneSecond);
+				$('div.tooltip').css({ 'position': 'absolute', 'top': tPosY, 'left': tPosX });
+				if ($.isEmptyObject(cache[id]))
+					await xmlIMDB("movie", "/" + id + "/");
+				//console.log($("#imdbe_popupDiv"));
+				$("#imdbe_popupDiv")[0].innerHTML = "";
+				html += "<div class='imdbe_lister-item-image float-left'><img alt='" + cache[id]["name"] + "' class='loadlate' src='" + cache[id]["image"] + "' width='67' height='98'>\
 					</div>\
  <div class='imdbe_lister-item-content'><h3 class='lister-item-header'> <a href='-'>" + cache[id]["name"] + "</a><span class='lister-item-year text-muted unbold'>(" + cache[id]["imdbYear"] + ")</span></h3>\
 			<p class='text-muted'><span class='genre'>";
-			for (let i = 0; i < Object.keys(cache[id]["genres"]).length; i++)
-			{
-				if (i === (Object.keys(cache[id]["genres"]).length - 1))
+				for (let i = 0; i < Object.keys(cache[id]["genres"]).length; i++)
 				{
-					html += Object.keys(cache[id]["genres"])[i];
-				}
-				else
-				{
-					html += Object.keys(cache[id]["genres"])[i] + ", ";
-				}
-			}
-			html += "</span></p>";
-
-			//TODO HERE RATINGS!!!!!!!!!!!!!!!!!!!!
-
-			html += "<p class='text-muted'>" + cache[id]["summary"] + "</p><p class=''>Directors:";
-
-			if (typeof cache[id]["directors"] !== "string")
-			{
-				for (let i = 0; i < Object.keys(cache[id]["directors"]).length; i++)
-				{
-					if (i === (Object.keys(cache[id]["directors"]).length - 1))
+					if (i === (Object.keys(cache[id]["genres"]).length - 1))
 					{
-						html += "<a href='-'>" + Object.values(cache[id]["directors"])[i] + "</a>";
+						html += Object.keys(cache[id]["genres"])[i];
 					}
 					else
 					{
-						html += "<a href='-'>" + Object.values(cache[id]["directors"])[i] + "</a>, ";
+						html += Object.keys(cache[id]["genres"])[i] + ", ";
 					}
 				}
-			} else
-			{
-				html += "<a href='-'>" + Object.values(cache[id]["directors"]) + "</a>";
-			}
+				html += "</span></p>";
 
-			html += "<span class='ghost'> | </span>Stars:";
+				//TODO HERE RATINGS!!!!!!!!!!!!!!!!!!!!
 
-			if (typeof cache[id]["stars"] !== "string")
-			{
-				for (let i = 0; i < Object.keys(cache[id]["stars"]).length; i++)
+				html += "<p class='text-muted'>" + cache[id]["summary"] + "</p><p class=''>Directors:";
+
+				if (typeof cache[id]["directors"] !== "string")
 				{
-					if (i === (Object.keys(cache[id]["stars"]).length - 1))
+					for (let i = 0; i < Object.keys(cache[id]["directors"]).length; i++)
 					{
-						html += "<a href='-'>" + Object.values(cache[id]["stars"])[i] + "</a>";
+						if (i === (Object.keys(cache[id]["directors"]).length - 1))
+						{
+							html += "<a href='-'>" + Object.values(cache[id]["directors"])[i] + "</a>";
+						}
+						else
+						{
+							html += "<a href='-'>" + Object.values(cache[id]["directors"])[i] + "</a>, ";
+						}
 					}
-					else
-					{
-						html += "<a href='-'>" + Object.values(cache[id]["stars"])[i] + "</a>, ";
-					}
-				}
-			} else
-			{
-				html += "<a href='-'>" + Object.values(cache[id]["stars"]) + "</a>";
-			}
-
-			html += "<span class='ghost'> | </span>Writers:";
-
-			if (typeof cache[id]["writers"] !== "string")
-			{
-				for (let i = 0; i < Object.keys(cache[id]["writers"]).length; i++)
+				} else
 				{
-					if (i === (Object.keys(cache[id]["writers"]).length - 1))
-					{
-						html += "<a href='-'>" + Object.values(cache[id]["writers"])[i] + "</a>";
-					}
-					else
-					{
-						html += "<a href='-'>" + Object.values(cache[id]["writers"])[i] + "</a>, ";
-					}
+					html += "<a href='-'>" + Object.values(cache[id]["directors"]) + "</a>";
 				}
-			} else
-			{
-				html += "<a href='-'>" + Object.values(cache[id]["writers"]) + "</a>";
-			}
 
-			html += "</p></div></div>";
+				html += "<span class='ghost'> | </span>Stars:";
 
-			//console.info(html);
+				if (typeof cache[id]["stars"] !== "string")
+				{
+					for (let i = 0; i < Object.keys(cache[id]["stars"]).length; i++)
+					{
+						if (i === (Object.keys(cache[id]["stars"]).length - 1))
+						{
+							html += "<a href='-'>" + Object.values(cache[id]["stars"])[i] + "</a>";
+						}
+						else
+						{
+							html += "<a href='-'>" + Object.values(cache[id]["stars"])[i] + "</a>, ";
+						}
+					}
+				} else
+				{
+					html += "<a href='-'>" + Object.values(cache[id]["stars"]) + "</a>";
+				}
 
-			$("#imdbe_popupDiv").append(html);
+				html += "<span class='ghost'> | </span>Writers:";
+
+				if (typeof cache[id]["writers"] !== "string")
+				{
+					for (let i = 0; i < Object.keys(cache[id]["writers"]).length; i++)
+					{
+						if (i === (Object.keys(cache[id]["writers"]).length - 1))
+						{
+							html += "<a href='-'>" + Object.values(cache[id]["writers"])[i] + "</a>";
+						}
+						else
+						{
+							html += "<a href='-'>" + Object.values(cache[id]["writers"])[i] + "</a>, ";
+						}
+					}
+				} else
+				{
+					html += "<a href='-'>" + Object.values(cache[id]["writers"]) + "</a>";
+				}
+
+				html += "</p></div></div>";
+
+				//console.info(html);
+
+				$("#imdbe_popupDiv").append(html);
+			}, 500);
+			
 			/*
 		<div class="lister-item mode-advanced">
 			 <div class="lister-item-image float-left">
@@ -2424,7 +2548,7 @@ function SetOption()
 		<fieldset id=imdbe_field>\
 		<input type=checkbox name=kinopoisk id=imdbe_kinopoisk ><a href='https://www.kinopoisk.ru/' target='_blank'>Kinopoisk</a></input><br> \
 		<input type=checkbox name=rottenTomatoes id=imdbe_rottenTomatoes ><a href='https://www.rottentomatoes.com/' target='_blank'>Rotten Tomatoes</a></input><br> \
-		<input type=checkbox name=rMovies id=imdbe_rMovies ><a href='' target='_blank'>r/Movies</a></input><br> \
+		<input type=checkbox name=rMovies id=imdbe_rMovies ><a href='https://www.reddit.com/r/movies/' target='_blank'>r/Movies</a></input><br> \
 		<input type=checkbox name=tmdb id=imdbe_tmdb ><a href='https://www.themoviedb.org/' target='_blank'>The Movie DB</a></input><br>\
 		</fieldset>\
 	<input type=checkbox name=debug id=imdbe_debug >Debug</input><br> \
@@ -2558,8 +2682,16 @@ function SetEvents(what)
 			{
 				if ($(e.target).attr("href").includes("title/tt"))
 				{
-					if (debug) console.log(e.target);
+					if (debug) console.log("in: " + e.target);
 					ShowPopUp(e, "movie");
+				}
+			}, function (e)
+			{
+				if ($(e.target).attr("href").includes("title/tt"))
+				{
+					if (debug) console.log("out: " + e.target);
+					$("#imdbe_popupDiv").hide(500);
+					clearTimeout(timeoutID);
 				}
 			});
 			break;
@@ -2619,9 +2751,9 @@ function GetStringScore(num)
 	1)UI for options, almost done in 0.0.04
 	2)Add ratings
 ✓	 2.1)Kinopoisk		//DONE 0.1.00
-	 2.2)Rotten
+✓	 2.2)Rotten			//DONE 0.2.00
 	  2.2.1)CANT BE ADD, NEED API????????
-	 2.3)r/movies
+✓	 2.3)r/movies		//DONE 0.2.00
 ✓	 2.4)TMDB			//DONE 0.1.01
 ✓	3)Add genres	//DONE 0.0.08
 ✓	 3.0)Its done but only works when reload second time, i need detect when ALL xml requests are finished and call function ShowGenres		//DONE 0.0.09
