@@ -5,7 +5,7 @@
 // @include     https://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      TiLied
-// @version     0.2.00
+// @version     0.2.01
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -619,6 +619,7 @@ async function AddCache(what, url, doc)
 					writers: GetContent.writers("page"),
 					stars: GetContent.stars("page"),
 					ratings: {},
+					imdbRating: GetContent.imdbRating("page"),
 					connects: {},
 					image: GetContent.image("page"),
 					//Props with Uppercase below
@@ -638,6 +639,7 @@ async function AddCache(what, url, doc)
 					writers: GetContent.writers("xml", doc.body),
 					stars: GetContent.stars("xml", doc.body),
 					ratings: {},
+					imdbRating: GetContent.imdbRating("xml", doc.body),
 					connects: {},
 					image: GetContent.image("xml", doc.body),
 					//Props with Uppercase below
@@ -1125,6 +1127,45 @@ function GetContentF()
 		}
 	}
 	//Function get year movie
+	//End
+
+	//Start
+	//Function get imdb rating movie
+	//what:Where are we get connections on page or xml. doc:optional for xml
+	function ImdbRating(what, doc)
+	{
+		switch (what)
+		{
+			case "page":
+				try
+				{
+					if (debug)
+					{
+						console.log(metaObj.aggregateRating["ratingValue"]);
+					}
+					let rat = parseInt(metaObj.aggregateRating["ratingValue"].split(".").join(""));
+					return rat;
+				} catch (e) { console.log(e); }
+				break;
+			case "xml":
+				try
+				{
+					//return ($(doc).contents().find("h1[itemprop='name']").contents()[1] === undefined ? "-" : $.trim($(doc).contents().find("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML));
+					if (typeof metaObj.aggregateRating["ratingValue"] === "undefined")
+						return "-";
+					else
+					{
+						let rat = parseInt(metaObj.aggregateRating["ratingValue"].split(".").join(""));
+						return rat;
+					}
+				} catch (e) { console.log(e); }
+				break;
+			default:
+				alert("fun:GetContent(what).year(" + what + "," + doc + "). default switch");
+				break;
+		}
+	}
+	//Function get imdb rating movie
 	//End
 
 	//Start
@@ -1794,6 +1835,7 @@ function GetContentF()
 		genre: Genre,
 		summary: Summary,
 		ratings: Ratings,
+		imdbRating: ImdbRating,
 		image: Image
 	};
 }
@@ -2144,7 +2186,6 @@ async function ShowRatings(url, which)
 				if ($.isEmptyObject(cache[id]["ratings"]["kinopoisk"]))
 				{
 					await xmlIMDB("kinopoisk", document.URL);
-					return;
 				}
 
 				html = "\
@@ -2170,7 +2211,6 @@ async function ShowRatings(url, which)
 				if (typeof cache[id]["ratings"]["rottenTomatoes"] === "undefined")
 				{
 					await xmlIMDB("rottenTomatoes", document.URL);
-					return;
 				}
 
 				html = "\
@@ -2196,7 +2236,6 @@ async function ShowRatings(url, which)
 				if ($.isEmptyObject(cache[id]["ratings"]["tmdb"]))
 				{
 					await xmlIMDB("tmdb", document.URL);
-					return;
 				}
 
 				html = "\
@@ -2222,7 +2261,6 @@ async function ShowRatings(url, which)
 				if ($.isEmptyObject(cache[id]["ratings"]["rMovies"]))
 				{
 					await xmlIMDB("rMovies", document.URL);
-					return;
 				}
 
 				html = "\
@@ -2281,7 +2319,6 @@ function ShowPopUp(event, what)
 	switch (what)
 	{
 		case "movie":
-			//TODO RATINGSSSSSSSSSSSSSSS!!!!!!!!!!!!!!!!!!!!!!!!!!
 			timeoutID = setTimeout(async function()
 			{
 				$("#imdbe_popupDiv").show(oneSecond);
@@ -2305,10 +2342,10 @@ function ShowPopUp(event, what)
 						html += Object.keys(cache[id]["genres"])[i] + ", ";
 					}
 				}
-				html += "</span></p>";
+				html += "</span></p><div class='ratings-bar'><div class='inline-block ratings-imdb-rating' name='ir' data-value=" + cache[id]["imdbRating"] + "><span class='global-sprite rating-star imdb-rating'></span><strong>" + cache[id]["imdbRating"] + "</strong></div>";
 
-				//TODO HERE RATINGS!!!!!!!!!!!!!!!!!!!!
-
+				//TODO HERE ADITIONAL RATINGS!!!!!!!!!!!!!!!!!!!!
+					
 				html += "<p class='text-muted'>" + cache[id]["summary"] + "</p><p class=''>Directors:";
 
 				if (typeof cache[id]["directors"] !== "string")
