@@ -5,7 +5,7 @@
 // @include     https://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      TiLied
-// @version     0.2.01
+// @version     0.2.02
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -426,6 +426,7 @@ function SwitchPage()
 			SetUpForConnects();
 			break;
 		case 5:
+			AddCache("people", document.URL);
 			SetUpForPeople();
 			break;
 		case 6:
@@ -486,6 +487,11 @@ function SetUpForFront()
 	{
 		SetEvents("popupM");
 	}
+
+	if (popupP)
+	{
+		SetEvents("popupP");
+	}
 }
 //Function check option on this Front page
 //End
@@ -497,6 +503,11 @@ function SetUpForSearch()
 	if (popupM)
 	{
 		SetEvents("popupM");
+	}
+
+	if (popupP)
+	{
+		SetEvents("popupP");
 	}
 }
 //Function check option on this Search page
@@ -522,6 +533,11 @@ function SetUpForPeople()
 	{
 		SetEvents("popupM");
 	}
+
+	if (popupP)
+	{
+		SetEvents("popupP");
+	}
 }
 //Function check option on this people page
 //End
@@ -535,6 +551,11 @@ function SetUpForConnects()
 	if (popupM)
 	{
 		SetEvents("popupM");
+	}
+
+	if (popupP)
+	{
+		SetEvents("popupP");
 	}
 }
 //Function check option on this Connects page
@@ -586,6 +607,11 @@ function SetUpForMovie()
 	{
 		SetEvents("popupM");
 	}
+
+	if (popupP)
+	{
+		SetEvents("popupP");
+	}
 }
 //Function check option on this movie page
 //End
@@ -601,12 +627,46 @@ function SetUpForMovie()
 async function AddCache(what, url, doc)
 {
 
-	var id = url.match(/\/(tt\d+)\//)[1];
+	var id = url.match(/\/(tt\d+|nm\d+)\//)[1];
 
 	function ChacheObj(id, what, url, doc)
 	{
-		//console.log(doc);
 		console.log(metaObj);
+		if (what === "people" || what === "peopleXML")
+		{
+			if (typeof doc === "undefined")
+			{
+				cache[id] =
+					{
+						fullUrl: url.match(/https:\/\/www\.imdb\.com\/name\/(nm\d+)\//),
+						dateId: Date.now(),
+						name: GetContent.namePeople("page"),
+						birthDate: GetContent.birthDate("page"),
+						deathDate: GetContent.deathDate("page"),
+						jobTitle: GetContent.jobTitle("page"),
+						image: GetContent.imagePeople("page"),
+						//Props with Uppercase below
+						summaryPeople: GetContent.summaryPeople("page"),
+						custom: ""
+					};
+			} else
+			{
+				cache[id] =
+					{
+						fullUrl: ["https://www.imdb.com/name/" + id, id],
+						dateId: Date.now(),
+						name: GetContent.namePeople("xml", doc.body),
+						birthDate: GetContent.birthDate("xml", doc.body),
+						deathDate: GetContent.deathDate("xml", doc.body),
+						jobTitle: GetContent.jobTitle("xml", doc.body),
+						image: GetContent.imagePeople("xml", doc.body),
+						//Props with Uppercase below
+						summaryPeople: GetContent.summaryPeople("xml", doc.body),
+						custom: ""
+					};
+			}
+			return;
+		}
 		if (typeof doc === "undefined")
 		{
 			cache[id] =
@@ -738,6 +798,39 @@ async function AddCache(what, url, doc)
 						cache[id].connects = GetContent.connects("xml", doc);
 						UpdateGM("cache");
 					}
+				}
+			}
+			break;
+		case "people":
+			if (typeof metaObj === "undefined")
+				metaObj = JSON.parse($("head > script[type='application/ld+json']").text());
+			if (typeof cache[id] === "undefined")
+			{
+				ChacheObj(id, what, url, doc);
+				UpdateGM("cache");
+			} else
+			{
+				if ((cache[id]["dateId"] + oneMonth) <= Date.now())
+				{
+					ChacheObj(id, what, url, doc);
+					UpdateGM("cache");
+				}
+			}
+			break;
+		case "peopleXML":
+
+			metaObj = JSON.parse($(doc.head).find("script[type='application/ld+json']").text());
+
+			if (typeof cache[id] === "undefined")
+			{
+				ChacheObj(id, what, url, doc);
+				UpdateGM("cache");
+			} else
+			{
+				if ((cache[id]["dateId"] + oneMonth) <= Date.now())
+				{
+					ChacheObj(id, what, url, doc);
+					UpdateGM("cache");
 				}
 			}
 			break;
@@ -1151,7 +1244,7 @@ function GetContentF()
 				try
 				{
 					//return ($(doc).contents().find("h1[itemprop='name']").contents()[1] === undefined ? "-" : $.trim($(doc).contents().find("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML));
-					if (typeof metaObj.aggregateRating["ratingValue"] === "undefined")
+					if (typeof metaObj.aggregateRating === "undefined")
 						return "-";
 					else
 					{
@@ -1823,6 +1916,172 @@ function GetContentF()
 	//Function get Poster of movie
 	//End
 
+
+	//Start
+	//Function get Name People 
+	function NamePeople(what, doc)
+	{
+		try
+		{
+			var i;
+
+			switch (what)
+			{
+				case "page":
+					if (typeof metaObj.name === "undefined")
+						return "-";
+					return metaObj.name;
+				case "xml":
+					if (typeof metaObj.name === "undefined")
+						return "-";
+					return metaObj.name;
+				default:
+					alert("fun:GetContent(what).NamePeople(" + what + "," + doc + "). default switch");
+					break;
+			}
+		} catch (e) { console.error(e); }
+	}
+	//Function get Name People 
+	//End
+
+
+	//Start
+	//Function get BirthDate People
+	function BirthDate(what, doc)
+	{
+		try
+		{
+			var i;
+
+			switch (what)
+			{
+				case "page":
+					if (typeof metaObj.birthDate === "undefined")
+						return "-";
+					return metaObj.birthDate;
+				case "xml":
+					if (typeof metaObj.birthDate === "undefined")
+						return "-";
+					return metaObj.birthDate;
+				default:
+					alert("fun:GetContent(what).BirthDate(" + what + "," + doc + "). default switch");
+					break;
+			}
+		} catch (e) { console.error(e); }
+	}
+	//Function get BirthDate People
+	//End
+
+	//Start
+	//Function get DeathDate People
+	function DeathDate(what, doc)
+	{
+		try
+		{
+			var i;
+
+			switch (what)
+			{
+				case "page":
+					if (typeof metaObj.deathDate === "undefined")
+						return "-";
+					return metaObj.deathDate;
+				case "xml":
+					if (typeof metaObj.deathDate === "undefined")
+						return "-";
+					return metaObj.deathDate;
+				default:
+					alert("fun:GetContent(what).DeathDate(" + what + "," + doc + "). default switch");
+					break;
+			}
+		} catch (e) { console.error(e); }
+	}
+	//Function get DeathDate People
+	//End
+
+
+	//Start
+	//Function get JobTitle People
+	function JobTitle(what, doc)
+	{
+		try
+		{
+			var i;
+
+			switch (what)
+			{
+				case "page":
+					if (typeof metaObj.jobTitle === "undefined")
+						return "-";
+					return metaObj.jobTitle;
+				case "xml":
+					if (typeof metaObj.jobTitle === "undefined")
+						return "-";
+					return metaObj.jobTitle;
+				default:
+					alert("fun:GetContent(what).JobTitle(" + what + "," + doc + "). default switch");
+					break;
+			}
+		} catch (e) { console.error(e); }
+	}
+	//Function get JobTitle People
+	//End
+
+	//Start
+	//Function get SummaryPeople People
+	function SummaryPeople(what, doc)
+	{
+		try
+		{
+			var i;
+
+			switch (what)
+			{
+				case "page":
+					if (typeof metaObj.description === "undefined")
+						return "-";
+					return metaObj.description;
+				case "xml":
+					if (typeof metaObj.description === "undefined")
+						return "-";
+					return metaObj.description;
+				default:
+					alert("fun:GetContent(what).SummaryPeople(" + what + "," + doc + "). default switch");
+					break;
+			}
+		} catch (e) { console.error(e); }
+	}
+	//Function get SummaryPeople People
+	//End
+
+
+	//Start
+	//Function get ImagePeople People
+	function ImagePeople(what, doc)
+	{
+		try
+		{
+			var i;
+
+			switch (what)
+			{
+				case "page":
+					if (typeof metaObj.image === "undefined")
+						return "-";
+					return metaObj.image;
+				case "xml":
+					if (typeof metaObj.image === "undefined")
+						return "-";
+					return metaObj.image;
+				default:
+					alert("fun:GetContent(what).ImagePeople(" + what + "," + doc + "). default switch");
+					break;
+			}
+		} catch (e) { console.error(e); }
+	}
+	//Function get ImagePeople People
+	//End
+
 	return {
 		connects: Connects,
 		age: Age,
@@ -1836,7 +2095,14 @@ function GetContentF()
 		summary: Summary,
 		ratings: Ratings,
 		imdbRating: ImdbRating,
-		image: Image
+		image: Image,
+		//People staff below
+		namePeople: NamePeople,
+		birthDate: BirthDate,
+		deathDate: DeathDate,
+		jobTitle: JobTitle,
+		summaryPeople: SummaryPeople,
+		imagePeople: ImagePeople
 	};
 }
 //Function get Content
@@ -1850,7 +2116,7 @@ function GetContentF()
 //Function xml/iframe on imdb
 function xmlIMDB(what, url, urlxml)
 {
-	var id = url.match(/\/(tt\d+)\//)[1],
+	var id = url.match(/\/(tt\d+|nm\d+)\//)[1],
 		parser = new DOMParser(),
 		doc;
 	//console.log(id);
@@ -1891,6 +2157,27 @@ function xmlIMDB(what, url, urlxml)
 						doc = parser.parseFromString(response.responseText, "text/html");
 						//console.log(doc);
 						resolve(AddCache("movieXML", "/" + id + "/", doc));
+					},
+					onerror: function (e)
+					{
+						reject(console.error(e));
+					}
+				});
+			});
+		case "people":
+			return new Promise(function (resolve, reject)
+			{
+				GM.xmlHttpRequest({
+					method: "GET",
+					url: "https://www.imdb.com/name/" + id,
+					//headers: { "User-agent": navigator.userAgent, "Accept": "document" },
+					timeout: oneSecond * 5,
+					onload: function (response)
+					{
+						if (debug) console.log(response);
+						doc = parser.parseFromString(response.responseText, "text/html");
+						//console.log(doc);
+						resolve(AddCache("peopleXML", "/" + id + "/", doc));
 					},
 					onerror: function (e)
 					{
@@ -2300,7 +2587,7 @@ function ShowPopUp(event, what)
 	if ($(event.target).attr("href").match(/(pro)/) || $(event.target).attr("href").match(/\/(tt\d+\/(characters|fullcredits|reviews|trivia|faq|keywords|releaseinfo|registration|videogallery|mediaindex|movieconnection))/))
 		return;
 
-	var id = $(event.target).attr("href").match(/\/(tt\d+)|\/(nm\d+)/)[1];
+	var id = $(event.target).attr("href").match(/\/(tt\d+|nm\d+)\//)[1];
 
 	const div = $("<div id=imdbe_popupDiv class='tooltip'></div>").html("LOADING...");
 
@@ -2455,7 +2742,37 @@ function ShowPopUp(event, what)
 			 */
 			break;
 		case "people":
-			//TODO if popup is blocking hide it
+			timeoutID = setTimeout(async function ()
+			{
+				$("#imdbe_popupDiv").show(oneSecond);
+				$('div.tooltip').css({ 'position': 'absolute', 'top': tPosY, 'left': tPosX });
+				if ($.isEmptyObject(cache[id]))
+					await xmlIMDB("people", "/" + id + "/");
+				$("#imdbe_popupDiv")[0].innerHTML = "";
+				html += "<div class='imdbe_lister-item-image float-left'><img alt='" + cache[id]["name"] + "' class='loadlate' src='" + cache[id]["image"] + "' width='67' height='98'>\
+					</div>\
+ <div class='imdbe_lister-item-content'><h3 class='lister-item-header'> <a href='-'>" + cache[id]["name"] + "</a><span class='lister-item-year text-muted unbold'>(" + cache[id]["birthDate"] + "-" + cache[id]["deathDate"] + ")</span></h3>\
+			<p class='text-muted'><span class='genre'>";
+				for (let i = 0; i < cache[id]["jobTitle"].length; i++)
+				{
+					if (i === (cache[id]["jobTitle"].length - 1))
+					{
+						html += cache[id]["jobTitle"][i];
+					}
+					else
+					{
+						html += cache[id]["jobTitle"][i] + ", ";
+					}
+				}
+				html += "</span></p><p class='text-muted'>" + cache[id]["summaryPeople"] + "</p>";
+				
+				html += "</p></div></div>";
+
+				//console.info(html);
+
+				$("#imdbe_popupDiv").append(html);
+			}, 500);
+
 			break;
 		default:
 			alert("fun:ShowPopUp(href, what).Ratings(" + href + "," + what + "). default switch");
@@ -2580,7 +2897,8 @@ function SetOption()
 	<input type=checkbox name=genre id=imdbe_genre >Show genre</input><br>\
 	<input type=checkbox name=trailer id=imdbe_trailer >Show trailer</input><br><br> \
 	<input type=checkbox name=connections id=imdbe_connections >Show connections</input><br><br> \
-	<input type=checkbox name=popupM id=imdbe_popupM >Popup for movies</input><br><br> \
+	<input type=checkbox name=popupM id=imdbe_popupM >Popup for movies</input><br>\
+	<input type=checkbox name=popupP id=imdbe_popupP >Popup for peoples</input><br><br> \
 	<input type=checkbox name=additionalRatings id=imdbe_additionalRatings >Additional Ratings</input><br> \
 		<fieldset id=imdbe_field>\
 		<input type=checkbox name=kinopoisk id=imdbe_kinopoisk ><a href='https://www.kinopoisk.ru/' target='_blank'>Kinopoisk</a></input><br> \
@@ -2619,6 +2937,7 @@ function UIValues()
 	$("#imdbe_rMovies").prop("checked", additionalRatings["rMovies"]);
 	$("#imdbe_tmdb").prop("checked", additionalRatings["tmdb"]);
 	$("#imdbe_popupM").prop("checked", popupM);
+	$("#imdbe_popupP").prop("checked", popupP);
 	$("#imdbe_debug").prop("checked", debug);
 }
 //Function set events
@@ -2676,6 +2995,11 @@ function SetEvents(what)
 			$("#imdbe_popupM").change(function ()
 			{
 				options.popupM = $(this).prop("checked");
+			});
+
+			$("#imdbe_popupP").change(function ()
+			{
+				options.popupP = $(this).prop("checked");
 			});
 			break;
 		case "rating":
@@ -2737,10 +3061,18 @@ function SetEvents(what)
 			{
 				if ($(e.target).attr("href").includes("name/nm"))
 				{
-					if (debug) console.log(e.target);
+					if (debug) console.log("in: " + e.target);
 					ShowPopUp(e, "people");
 				}
-			});
+			}, function (e)
+				{
+				if ($(e.target).attr("href").includes("name/nm"))
+					{
+						if (debug) console.log("out: " + e.target);
+						$("#imdbe_popupDiv").hide(500);
+						clearTimeout(timeoutID);
+					}
+				});
 			break;
 		default:
 			console.error("SetEvents-" + what);
