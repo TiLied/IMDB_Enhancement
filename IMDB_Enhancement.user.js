@@ -5,7 +5,7 @@
 // @include     https://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      TiLied
-// @version     0.2.02
+// @version     0.2.03
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -117,7 +117,10 @@ async function SetSettings(callBack)
 		//Find out that var in for block is not local... Seriously js?
 		for (let i = 0; i < vals.length; i++)
 		{
-			console.log("*" + vals[i] + ":" + await GM.getValue(vals[i]));
+			let str = await GM.getValue(vals[i]);
+			console.log("*" + vals[i] + ":" + str);
+			const byteSize = str => new Blob([str]).size;
+			console.log("Size " + vals[i] + ": " + FormatBytes(byteSize(str)) + "");
 		}
 		console.log("*-----*");
 		if (debug)
@@ -1281,6 +1284,10 @@ function GetContentF()
 
 				return genres;
 				*/
+
+				if (typeof metaObj.genre === "undefined")
+					return genres;
+
 				g = metaObj.genre;
 
 				if (typeof g === "string")
@@ -1303,6 +1310,10 @@ function GetContentF()
 					genres[$.trim(g[i].innerHTML)] = "https://www.imdb.com/genre/" + $.trim(g[i].innerHTML);
 				}
 				*/
+
+				if (typeof metaObj.genre === "undefined")
+					return genres;
+
 				g = metaObj.genre;
 
 				if (typeof g === "string")
@@ -2006,18 +2017,26 @@ function GetContentF()
 	{
 		try
 		{
-			var i;
+			var i, arr = [];
 
 			switch (what)
 			{
 				case "page":
 					if (typeof metaObj.jobTitle === "undefined")
-						return "-";
-					return metaObj.jobTitle;
+						arr.push("-");
+					if (typeof metaObj.jobTitle === "string")
+						arr.push(metaObj.jobTitle);
+					if (typeof metaObj.jobTitle === "object")
+						arr = metaObj.jobTitle;
+					return arr;
 				case "xml":
 					if (typeof metaObj.jobTitle === "undefined")
-						return "-";
-					return metaObj.jobTitle;
+						arr.push("-");
+					if (typeof metaObj.jobTitle === "string")
+						arr.push(metaObj.jobTitle);
+					if (typeof metaObj.jobTitle === "object")
+						arr = metaObj.jobTitle;
+					return arr;
 				default:
 					alert("fun:GetContent(what).JobTitle(" + what + "," + doc + "). default switch");
 					break;
@@ -2584,7 +2603,7 @@ async function ShowRatings(url, which)
 //Function show PopUp 
 function ShowPopUp(event, what)
 {
-	if ($(event.target).attr("href").match(/(pro)/) || $(event.target).attr("href").match(/\/(tt\d+\/(characters|fullcredits|reviews|trivia|faq|keywords|releaseinfo|registration|videogallery|mediaindex|movieconnection))/))
+	if ($(event.target).attr("href").match(/(pro)/) || $(event.target).attr("href").match(/\/((tt\d+|nm\d+)\/(characters|fullcredits|reviews|trivia|faq|keywords|releaseinfo|registration|videogallery|mediaindex|movieconnection|resume|bio))/))
 		return;
 
 	var id = $(event.target).attr("href").match(/\/(tt\d+|nm\d+)\//)[1];
@@ -2594,12 +2613,37 @@ function ShowPopUp(event, what)
 	var tPosX = event.pageX - 250;
 	var tPosY = event.pageY + 25;
 
+	if (tPosX <= 0)
+		tPosX = 5;
+
 	var html = "<div class='lister-item imdbe_mode-advanced'>";
 
 	if ($("#imdbe_popupDiv").length === 0)
 	{
 		div.appendTo('body');
 		$("#imdbe_popupDiv").hide();
+
+		//Event  TODO NEED BETTER WAY!!!
+		$("#imdbe_popupDiv").hover(function (e)
+		{
+			if (debug)
+			{
+				console.log("in: " + e.target);
+				console.log(e.target);
+			}
+		}, function (e)
+		{
+			if (debug)
+			{
+				console.log("out: " + e.target);
+				console.log(e.target);
+			}
+			$("#imdbe_popupDiv").hide(500);
+			clearTimeout(timeoutID);
+		});
+	} else
+	{
+		$("#imdbe_popupDiv").html("LOADING...")
 	}
 	//console.log(id);
 
@@ -2751,8 +2795,9 @@ function ShowPopUp(event, what)
 				$("#imdbe_popupDiv")[0].innerHTML = "";
 				html += "<div class='imdbe_lister-item-image float-left'><img alt='" + cache[id]["name"] + "' class='loadlate' src='" + cache[id]["image"] + "' width='67' height='98'>\
 					</div>\
- <div class='imdbe_lister-item-content'><h3 class='lister-item-header'> <a href='-'>" + cache[id]["name"] + "</a><span class='lister-item-year text-muted unbold'>(" + cache[id]["birthDate"] + "-" + cache[id]["deathDate"] + ")</span></h3>\
+ <div class='imdbe_lister-item-content'><h3 class='lister-item-header'> <a href=" + cache[id]["fullUrl"][0] +">" + cache[id]["name"] + "</a><span class='lister-item-year text-muted unbold'>(" + cache[id]["birthDate"] + " - " + cache[id]["deathDate"] + ")</span></h3>\
 			<p class='text-muted'><span class='genre'>";
+
 				for (let i = 0; i < cache[id]["jobTitle"].length; i++)
 				{
 					if (i === (cache[id]["jobTitle"].length - 1))
@@ -2858,7 +2903,7 @@ function SetCSS()
 	z-index: 500;\
 	max-width: 650px;\
 	max-height: 250px;\
-	border: 1px solid #BBB;\
+	border: 2px solid #BBB;\
 }"));
 
 	$("head").append($("<style type=text/css></style>").text(".imdbe_mode-advanced { \
@@ -3039,40 +3084,24 @@ function SetEvents(what)
 			});
 			break;
 		case "popupM":
-			$("a").hover(function (e)
+			$("a").mouseover(function (e)
 			{
 				if ($(e.target).attr("href").includes("title/tt"))
 				{
 					if (debug) console.log("in: " + e.target);
 					ShowPopUp(e, "movie");
 				}
-			}, function (e)
-			{
-				if ($(e.target).attr("href").includes("title/tt"))
-				{
-					if (debug) console.log("out: " + e.target);
-					$("#imdbe_popupDiv").hide(500);
-					clearTimeout(timeoutID);
-				}
 			});
 			break;
 		case "popupP":
-			$("a").hover(function (e)
+			$("a").mouseover(function (e)
 			{
 				if ($(e.target).attr("href").includes("name/nm"))
 				{
 					if (debug) console.log("in: " + e.target);
 					ShowPopUp(e, "people");
 				}
-			}, function (e)
-				{
-				if ($(e.target).attr("href").includes("name/nm"))
-					{
-						if (debug) console.log("out: " + e.target);
-						$("#imdbe_popupDiv").hide(500);
-						clearTimeout(timeoutID);
-					}
-				});
+			});
 			break;
 		default:
 			console.error("SetEvents-" + what);
@@ -3112,6 +3141,23 @@ function GetStringScore(num)
 //Function Get String Score
 //End
 
+//Start
+//Format bytes https://stackoverflow.com/a/18650828
+function FormatBytes(bytes, decimals = 2)
+{
+	if (bytes === 0) return '0 Bytes';
+
+	const k = 1024;
+	const dm = decimals < 0 ? 0 : decimals;
+	const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+	return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+//Format bytes https://stackoverflow.com/a/18650828
+//End
+
 // ------------
 //  TODO
 // ------------
@@ -3144,5 +3190,5 @@ function GetStringScore(num)
 ✓	 11)Add search trailer on youtube if trailer not avalible		//DONE 0.1.02
 ✓	 12)Make pop-up for movies		//DONE 0.1.06
 	 12.1)Clean event when unckecking in options!!!!
-	13)Make pop-up for people
+✓	13)Make pop-up for people				//DONE 0.2.02
 TODO ENDS */
