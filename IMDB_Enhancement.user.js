@@ -5,7 +5,7 @@
 // @include     https://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      TiLied
-// @version     0.2.04
+// @version     0.2.05
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -1291,12 +1291,12 @@ function GetContentF()
 				g = metaObj.genre;
 
 				if (typeof g === "string")
-					genres[g] = "https://www.imdb.com/genre/" + g;
+					genres[g] = "https://www.imdb.com/search/title/?genres=" + g;
 				else
 				{
 					for (let i = 0; i < g.length; i++)
 					{
-						genres[g[i]] = "https://www.imdb.com/genre/" + g[i];
+						genres[g[i]] = "https://www.imdb.com/search/title/?genres=" + g[i];
 					}
 				}
 				return genres;
@@ -1317,12 +1317,12 @@ function GetContentF()
 				g = metaObj.genre;
 
 				if (typeof g === "string")
-					genres[g] = "https://www.imdb.com/genre/" + g;
+					genres[g] = "https://www.imdb.com/search/title/?genres=" + g;
 				else
 				{
 					for (let i = 0; i < g.length; i++)
 					{
-						genres[g[i]] = "https://www.imdb.com/genre/" + g[i];
+						genres[g[i]] = "https://www.imdb.com/search/title/?genres=" + g[i];
 					}
 				}
 				return genres;
@@ -2681,11 +2681,11 @@ function ShowPopUp(event, what)
 				{
 					if (i === (Object.keys(cache[id]["genres"]).length - 1))
 					{
-						html += "<a href=" + cache[id]["genres"][i] +">" + Object.keys(cache[id]["genres"])[i] + "</a>";
+						html += "<a href=" + cache[id]["genres"][Object.keys(cache[id]["genres"])[i]] + ">" + Object.keys(cache[id]["genres"])[i] + "</a>";
 					}
 					else
 					{
-						html += "<a href=" + cache[id]["genres"][i] + ">" + Object.keys(cache[id]["genres"])[i] + "</a>, ";
+						html += "<a href=" + cache[id]["genres"][Object.keys(cache[id]["genres"])[i]] + ">" + Object.keys(cache[id]["genres"])[i] + "</a>, ";
 					}
 				}
 				html += "</span></p><div class='ratings-bar'><div class='inline-block ratings-imdb-rating' name='ir' data-value=" + cache[id]["imdbRating"] + "><span class='global-sprite rating-star imdb-rating'></span><strong>" + cache[id]["imdbRating"] + "</strong></div>";
