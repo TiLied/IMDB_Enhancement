@@ -5,7 +5,7 @@
 // @include     https://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      TiLied
-// @version     0.2.03
+// @version     0.2.04
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -456,7 +456,7 @@ function GetPage(url)
 		if (document.location.pathname === "/")
 		{
 			whatPage = 1;
-		} else if (url.match(/https:\/\/www\.imdb\.com\/find/i))
+		} else if (url.match(/https:\/\/www\.imdb\.com\/search/i))
 		{
 			whatPage = 2;
 		} else if (url.match(/https:\/\/www\.imdb\.com\/title/i) && !url.match(/(movieconnections)|(tt_trv_(cnn|snd|trv|qu|gf|cc)|tt(cnn|snd|trv|qu|gf|cc))/i))
@@ -1738,13 +1738,14 @@ function GetContentF()
 				score,
 				names,
 				d = doc,
-				div;
+				u;
 			//
 			//TODO NEED CHECK FOR EXIST ELEMENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 			//
 			switch (what)
 			{
 				case "kinopoisk":
+					/*
 					el = $(doc).contents().find("div.most_wanted");
 					if (typeof el === "undefined")
 					{
@@ -1762,6 +1763,20 @@ function GetContentF()
 						console.log(el);
 						console.log(obj);
 					}
+					*/
+
+					el = $(doc).contents().find("a[class*='styles_allAwardsLink']").attr("href");
+
+					if (typeof el === "undefined")
+					{
+						return obj = {
+							url: "https://www.kinopoisk.ru/index.php?level=7&from=forma&result=adv&m_act%5Bfrom%5D=forma&m_act%5Bwhat%5D=content&m_act%5Bfind%5D=" + cache[id]["name"] + "&m_act%5Bcast%5D=" + cache[id]["directors"][0],
+							score: "N/A"
+						};
+					}
+
+					obj.url = "https://www.kinopoisk.ru/film/" + el.match(/(\d)\w+/)[0];
+					obj.score = parseInt($(doc).contents().find("span.film-rating-value").text().slice(0, 3).split(".").join(""));
 					return obj;
 				case "rottenTomatoes":
 					url = $(d.body).contents().find("p.title > a").attr("href");
@@ -2209,7 +2224,7 @@ function xmlIMDB(what, url, urlxml)
 			{
 				GM.xmlHttpRequest({
 					method: "GET",
-					url: "https://www.kinopoisk.ru/index.php?level=7&from=forma&result=adv&m_act[from]=forma&m_act[what]=content&m_act[find]=" + cache[id]["name"] + "&m_act[year]=" + cache[id]["imdbYear"],
+					url: "https://www.kinopoisk.ru/index.php?level=7&from=forma&result=adv&m_act%5Bfrom%5D=forma&m_act%5Bwhat%5D=content&m_act%5Bfind%5D=" + cache[id]["name"] + "&m_act%5Bcast%5D=" + cache[id]["directors"][0],
 					//headers: { "User-agent": navigator.userAgent, "Accept": "document" },
 					timeout: oneSecond * 5,
 					onload: function (response)
@@ -2603,7 +2618,7 @@ async function ShowRatings(url, which)
 //Function show PopUp 
 function ShowPopUp(event, what)
 {
-	if ($(event.target).attr("href").match(/(pro)/) || $(event.target).attr("href").match(/\/((tt\d+|nm\d+)\/(characters|fullcredits|reviews|trivia|faq|keywords|releaseinfo|registration|videogallery|mediaindex|movieconnection|resume|bio))/))
+	if ($(event.target).attr("href").match(/(pro)/) || $(event.target).attr("href").match(/\/((tt\d+|nm\d+)\/(characters|fullcredits|reviews|trivia|faq|keywords|releaseinfo|registration|videogallery|mediaindex|movieconnection|resume|bio|awards))/))
 		return;
 
 	var id = $(event.target).attr("href").match(/\/(tt\d+|nm\d+)\//)[1];
@@ -2660,24 +2675,24 @@ function ShowPopUp(event, what)
 				$("#imdbe_popupDiv")[0].innerHTML = "";
 				html += "<div class='imdbe_lister-item-image float-left'><img alt='" + cache[id]["name"] + "' class='loadlate' src='" + cache[id]["image"] + "' width='67' height='98'>\
 					</div>\
- <div class='imdbe_lister-item-content'><h3 class='lister-item-header'> <a href='-'>" + cache[id]["name"] + "</a><span class='lister-item-year text-muted unbold'>(" + cache[id]["imdbYear"] + ")</span></h3>\
+ <div class='imdbe_lister-item-content'><h3 class='lister-item-header'> <a href="+ cache[id]["fullUrl"][0] +">" + cache[id]["name"] + "</a><span class='lister-item-year text-muted unbold'>(" + cache[id]["imdbYear"] + ")</span></h3>\
 			<p class='text-muted'><span class='genre'>";
 				for (let i = 0; i < Object.keys(cache[id]["genres"]).length; i++)
 				{
 					if (i === (Object.keys(cache[id]["genres"]).length - 1))
 					{
-						html += Object.keys(cache[id]["genres"])[i];
+						html += "<a href=" + cache[id]["genres"][i] +">" + Object.keys(cache[id]["genres"])[i] + "</a>";
 					}
 					else
 					{
-						html += Object.keys(cache[id]["genres"])[i] + ", ";
+						html += "<a href=" + cache[id]["genres"][i] + ">" + Object.keys(cache[id]["genres"])[i] + "</a>, ";
 					}
 				}
 				html += "</span></p><div class='ratings-bar'><div class='inline-block ratings-imdb-rating' name='ir' data-value=" + cache[id]["imdbRating"] + "><span class='global-sprite rating-star imdb-rating'></span><strong>" + cache[id]["imdbRating"] + "</strong></div>";
 
 				//TODO HERE ADITIONAL RATINGS!!!!!!!!!!!!!!!!!!!!
 					
-				html += "<p class='text-muted'>" + cache[id]["summary"] + "</p><p class=''>Directors:";
+				html += "<p class='text-muted'>" + cache[id]["summary"] + "</p><p class=''>Directors: ";
 
 				if (typeof cache[id]["directors"] !== "string")
 				{
@@ -2685,19 +2700,19 @@ function ShowPopUp(event, what)
 					{
 						if (i === (Object.keys(cache[id]["directors"]).length - 1))
 						{
-							html += "<a href='-'>" + Object.values(cache[id]["directors"])[i] + "</a>";
+							html += "<a >" + Object.values(cache[id]["directors"])[i] + "</a>";
 						}
 						else
 						{
-							html += "<a href='-'>" + Object.values(cache[id]["directors"])[i] + "</a>, ";
+							html += "<a >" + Object.values(cache[id]["directors"])[i] + "</a>, ";
 						}
 					}
 				} else
 				{
-					html += "<a href='-'>" + Object.values(cache[id]["directors"]) + "</a>";
+					html += "<a >" + Object.values(cache[id]["directors"]) + "</a>";
 				}
 
-				html += "<span class='ghost'> | </span>Stars:";
+				html += "<span class='ghost'> | </span>Stars: ";
 
 				if (typeof cache[id]["stars"] !== "string")
 				{
@@ -2705,19 +2720,19 @@ function ShowPopUp(event, what)
 					{
 						if (i === (Object.keys(cache[id]["stars"]).length - 1))
 						{
-							html += "<a href='-'>" + Object.values(cache[id]["stars"])[i] + "</a>";
+							html += "<a>" + Object.values(cache[id]["stars"])[i] + "</a>";
 						}
 						else
 						{
-							html += "<a href='-'>" + Object.values(cache[id]["stars"])[i] + "</a>, ";
+							html += "<a>" + Object.values(cache[id]["stars"])[i] + "</a>, ";
 						}
 					}
 				} else
 				{
-					html += "<a href='-'>" + Object.values(cache[id]["stars"]) + "</a>";
+					html += "<a>" + Object.values(cache[id]["stars"]) + "</a>";
 				}
 
-				html += "<span class='ghost'> | </span>Writers:";
+				html += "<span class='ghost'> | </span>Writers: ";
 
 				if (typeof cache[id]["writers"] !== "string")
 				{
@@ -2725,16 +2740,16 @@ function ShowPopUp(event, what)
 					{
 						if (i === (Object.keys(cache[id]["writers"]).length - 1))
 						{
-							html += "<a href='-'>" + Object.values(cache[id]["writers"])[i] + "</a>";
+							html += "<a>" + Object.values(cache[id]["writers"])[i] + "</a>";
 						}
 						else
 						{
-							html += "<a href='-'>" + Object.values(cache[id]["writers"])[i] + "</a>, ";
+							html += "<a>" + Object.values(cache[id]["writers"])[i] + "</a>, ";
 						}
 					}
 				} else
 				{
-					html += "<a href='-'>" + Object.values(cache[id]["writers"]) + "</a>";
+					html += "<a>" + Object.values(cache[id]["writers"]) + "</a>";
 				}
 
 				html += "</p></div></div>";
@@ -3113,7 +3128,7 @@ function SetEvents(what)
 //End
 
 //-------------------------
-//TOOLS STAFF BELOW
+//TOOLS STUFF BELOW
 //-------------------------
 
 //Start
