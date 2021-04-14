@@ -5,7 +5,7 @@
 // @include     https://www.imdb.com/*
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      TiLied
-// @version     0.2.05
+// @version     0.2.06
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -894,13 +894,13 @@ async function AddCache(what, url, doc)
 			{
 				if ($.isEmptyObject(cache[id]["ratings"]))
 				{
-					GetContent.ratings("tmdb", doc, id).then(obj => cache[id].ratings["tmdb"] = obj);
+					await GetContent.ratings("tmdb", doc, id).then(obj => cache[id].ratings["tmdb"] = obj);
 					UpdateGM("cache");
 				} else
 				{
 					if ($.isEmptyObject(cache[id]["ratings"]["tmdb"]))
 					{
-						GetContent.ratings("tmdb", doc, id).then(obj => cache[id].ratings["tmdb"] = obj);
+						await GetContent.ratings("tmdb", doc, id).then(obj => cache[id].ratings["tmdb"] = obj);
 						UpdateGM("cache");
 					}
 				}
@@ -1735,10 +1735,7 @@ function GetContentF()
 			var obj = {},
 				url,
 				el,
-				score,
-				names,
-				d = doc,
-				u;
+				d = doc;
 			//
 			//TODO NEED CHECK FOR EXIST ELEMENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 			//
@@ -1765,8 +1762,8 @@ function GetContentF()
 					}
 					*/
 
-					el = $(doc).contents().find("a[class*='styles_allAwardsLink']").attr("href");
-
+					el = $(doc).contents().find("a[class*='styles_linkDark']").attr("href");
+					//console.log(el);
 					if (typeof el === "undefined")
 					{
 						return obj = {
@@ -1777,6 +1774,7 @@ function GetContentF()
 
 					obj.url = "https://www.kinopoisk.ru/film/" + el.match(/(\d)\w+/)[0];
 					obj.score = parseInt($(doc).contents().find("span.film-rating-value").text().slice(0, 3).split(".").join(""));
+
 					return obj;
 				case "rottenTomatoes":
 					url = $(d.body).contents().find("p.title > a").attr("href");
@@ -1821,7 +1819,7 @@ function GetContentF()
 					}
 
 					obj.url = url;
-					obj.score = el["aggregateRating"]["ratingValue"];
+					obj.score = parseInt(el["aggregateRating"]["ratingValue"]);
 
 					if (debug)
 					{
@@ -1829,9 +1827,27 @@ function GetContentF()
 						console.log(el);
 						console.log(obj);
 					}
+
 					return obj;
 				case "tmdb":
-					el = $(doc).contents().find("div.item")[0];
+					url = $(d).contents().find("a.result").attr("href");
+
+					url = "https://www.themoviedb.org/" + url;
+
+					console.log(url);
+
+					if (typeof url === "undefined")
+					{
+						return obj = {
+							url: "https://www.themoviedb.org/search?query=" + cache[id]["name"],
+							score: "N/A"
+						};
+					}
+
+					d = await xmlIMDB("xml", "/" + id + "/", url);
+
+					el = $(d).contents().find("div.user_score_chart");
+					console.log(el);
 					if (typeof el === "undefined")
 					{
 						return obj = {
@@ -1839,16 +1855,20 @@ function GetContentF()
 							score: "N/A"
 						};
 					}
-					obj.url = "https://www.themoviedb.org" + $(el).contents().find("div a").attr("href");
-					obj.score = parseInt($(el).contents().find("div.user_score_chart").attr("data-percent"));
+
+					obj.url = url;
+					obj.score = parseInt($(el).attr("data-percent"));
+
 					if (obj.score === 0.0)
 						obj.score = "tbd";
+
 					if (debug)
 					{
 						console.log(doc);
 						console.log(el);
 						console.log(obj);
 					}
+
 					return obj;
 				case "rMovies":
 					url = $(d.body).contents().find("p.title > a").attr("href");
@@ -2554,7 +2574,7 @@ async function ShowRatings(url, which)
 				revBar.prepend(html);
 				break;
 			case "tmdb":
-				if ($.isEmptyObject(cache[id]["ratings"]["tmdb"]))
+				if (typeof cache[id]["ratings"]["tmdb"] === "undefined")
 				{
 					await xmlIMDB("tmdb", document.URL);
 				}
