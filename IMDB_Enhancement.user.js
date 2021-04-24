@@ -3,9 +3,9 @@
 // @namespace   https://greasyfork.org/users/102866
 // @description IMDB Enhancement adds features
 // @include     https://www.imdb.com/*
-// @require     https://code.jquery.com/jquery-3.3.1.min.js
+// @require     https://code.jquery.com/jquery-3.6.0.min.js
 // @author      TiLied
-// @version     0.2.06
+// @version     0.3.00
 // @grant       GM_listValues
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -19,37 +19,19 @@
 // @grant       GM.xmlHttpRequest
 // ==/UserScript==
 
-var whatPage = 0;
-
 const oneSecond = 1000,
 	oneDay = oneSecond * 60 * 60 * 24,
 	oneWeek = oneDay * 7,
 	oneMonth = oneWeek * 4;
 
-//prefs
-var options = {},
-	cache = {},
-	debug,
-	additionalRatings,
-	age,
-	genre,
-	version,
-	versionCache,
-	connections,
-	trailer,
-	hide,
-	popupM,
-	popupP;
-
-var GetContent = GetContentF(),
-	metaObj,
-	timeoutID;
+let whatPage = 0;
 
 /**
 * ENUM, BECAUSE WHY NOT ¯\_(ツ)_/¯
 * SEE FUNCTION GetPage()
 */
-var Page;
+
+let Page;
 (function (Page)
 {
 	Page[Page["ErrorNothing"] = 0] = "ErrorNothing";
@@ -65,123 +47,129 @@ var Page;
 	Page[Page["anythingElse"] = 10] = "anythingElse";
 })(Page || (Page = {}));
 
-//Start
-//Function main
-void function Main()
+class Options2 
 {
-	console.log("IMDB Enhancement v" + GM.info.script.version + " initialization");
-	//Place CSS in head
-	SetCSS();
-	//Set settings or create
-	SetSettings(function ()
+	constructor(version)
 	{
-		//Check on what page we are and switch.
-		SwitchPage();
-		//Place UI Options
-		SetOption();
-		console.log("Page number: " + whatPage + "/" + Page[whatPage] + " page");
-	});
-	
-}();
-//Function main
-//End
+		this.version = version;
+		this.debug = false;
+
+		this.additionalRatings = {
+			on: false,
+			kinopoisk: false,
+			rottenTomatoes: false,
+			rMovies: false,
+			tmdb: false
+		};
+		this.hide = {};
+
+		this.age = false;
+		this.connections = false;
+		this.genre = false;
+		this.trailer = false;
+
+		this.popupM = false;
+		this.popupP = false;
+	}
+
+	then(resolve)
+	{
+		console.time("Options2.then");
+		console.timeLog("Options2.then");
+
+		Options2._GMHasValue("imdbe_options2").then((r) =>
+		{
+			if (r === true)
+			{
+				GM.getValue("imdbe_options2").then((v) =>
+				{
+					let _v = JSON.parse(v);
+					this.SetOptions = _v;
+				});
+			} else
+			{
+				let stringStorage = 
+					{
+						version :this.version,
+						debug :this.debug,
+
+						additionalRatings :this.additionalRatings,
+						hide :this.hide,
+
+						age :this.age,
+						connections : this.connections,
+						genre : this.genre,
+						trailer : this.trailer,
+
+						popupM : this.popupM,
+						popupP : this.popupP
+					};
+
+				Options2._GMUpdate("options2", stringStorage);
+			}
+
+			console.timeEnd("Options2.then");
+			resolve("done");
+		});
+
+	}
+
 
 //Start
 //Functions GM_VALUE
-async function SetSettings(callBack)
-{
-	try
-	{
-		//DeleteValues("all");
-		//if (debug && await GM.getValue("adm"))
-		//	DeleteValues("imdbe_cache");
-		//THIS IS ABOUT OPTIONS
-		if (await HasValue("imdbe_options", JSON.stringify(options)))
-		{
-			options = JSON.parse(await GM.getValue("imdbe_options"));
-			SetOptionsObj();
-		}
-
-		//THIS IS ABOUT CACHE
-		if (await HasValue("imdbe_cache", JSON.stringify(cache)))
-		{
-			cache = JSON.parse(await GM.getValue("imdbe_cache"));
-			SetCacheObj();
-		}
-
-		//Console log prefs with value
-		console.log("*prefs:");
-		console.log("*-----*");
-		var vals = await GM.listValues();
-
-		//Find out that var in for block is not local... Seriously js?
-		for (let i = 0; i < vals.length; i++)
-		{
-			let str = await GM.getValue(vals[i]);
-			console.log("*" + vals[i] + ":" + str);
-			const byteSize = str => new Blob([str]).size;
-			console.log("Size " + vals[i] + ": " + FormatBytes(byteSize(str)) + "");
-		}
-		console.log("*-----*");
-		if (debug)
-		{
-			console.log(options);
-			console.log(cache);
-		}
-
-		callBack();
-	} catch (e) { console.log(e); }
-}
-
 //Check if value exists or not.  optValue = Optional
-async function HasValue(nameVal, optValue)
+static async _GMHasValue(nameVal, optValue)
 {
-	var vals = await GM.listValues();
-
-	if (vals.length === 0)
+	return new Promise((resolve, reject) =>
 	{
-		if (optValue !== undefined)
+		GM.listValues().then(vals =>
 		{
-			GM.setValue(nameVal, optValue);
-			return true;
-		} else
-		{
-			return false;
-		}
-	}
 
-	if (typeof nameVal !== "string")
-	{
-		return alert("name of value: '" + nameVal + "' are not string");
-	}
+			if (vals.length === 0)
+			{
+				if (optValue !== undefined)
+				{
+					GM.setValue(nameVal, optValue);
+					resolve(true);
+				} else
+				{
+					resolve(false);
+				}
+			}
 
-	for (let i = 0; i < vals.length; i++)
-	{
-		if (vals[i] === nameVal)
-		{
-			return true;
-		}
-	}
+			if (typeof nameVal !== "string")
+			{
+				reject(console.error("name of value: '" + nameVal + "' are not string"));
+			}
 
-	if (optValue !== undefined)
-	{
-		GM.setValue(nameVal, optValue);
-		return true;
-	} else
-	{
-		return false;
-	}
+			for (let i = 0; i < vals.length; i++)
+			{
+				if (vals[i] === nameVal)
+				{
+					resolve(true);
+				}
+			}
+
+			if (optValue !== undefined)
+			{
+				GM.setValue(nameVal, optValue);
+				resolve(true);
+			} else
+			{
+				resolve(false);
+			}
+		});
+	});
+	
 }
 
 //Delete Values
-async function DeleteValues(nameVal)
+static async _GMDeleteValues(nameVal)
 {
-	var vals = await GM.listValues();
+	let vals = await GM.listValues();
 
 	if (vals.length === 0 || typeof nameVal !== "string")
-	{
 		return;
-	}
 
 	switch (nameVal)
 	{
@@ -193,16 +181,7 @@ async function DeleteValues(nameVal)
 					GM.deleteValue(vals[i]);
 				}
 			}
-			break;
-		case "old":
-			for (let i = 0; i < vals.length; i++)
-			{
-				if (vals[i] === "debug" || vals[i] === "debugA")
-				{
-					GM.deleteValue(vals[i]);
-				}
-			}
-			break;
+			return;
 		default:
 			for (let i = 0; i < vals.length; i++)
 			{
@@ -211,226 +190,713 @@ async function DeleteValues(nameVal)
 					GM.deleteValue(nameVal);
 				}
 			}
-			break;
+			return;
 	}
 }
 
 ///Update gm value what:"cache","options"
-function UpdateGM(what)
+static _GMUpdate(what, _v)
 {
-	var gmVal;
-
+	let _l = JSON.stringify(_v);
 	switch (what)
 	{
-		case "cache":
-			gmVal = JSON.stringify(cache);
-			GM.setValue("imdbe_cache", gmVal);
+		case "cache2":
+
+			GM.setValue("imdbe_cache2", _l);
 			break;
-		case "options":
-			gmVal = JSON.stringify(options);
-			GM.setValue("imdbe_options", gmVal);
+		case "options2":
+			GM.setValue("imdbe_options2", _l);
 			break;
 		default:
-			alert("fun:UpdateGM(" + what + "). default switch");
+			console.error("method:_GMUpdate(" + what +"," + _v + "). default switch");
 			break;
 	}
 }
 //Functions GM_VALUE
 //End
 
-//Start
-//Functions create object option and cache
-function SetOptionsObj()
-{
-	try
+	set SetOptions(obj)
 	{
-		//Debug option
-		if (typeof options.debug === "undefined")
-		{
-			options.debug = false;
-			debug = options.debug;
-		} else
-		{
-			debug = options.debug;
-		}
+		this.debug = obj.debug;
 
-		//Version
-		if (typeof options.version === "undefined")
-		{
-			options.version = GM.info.script.version;
-			version = options.version;
-		} else
-		{
-			version = options.version;
-			if (version !== GM.info.script.version)
-			{
-				options.version = GM.info.script.version;
-				version = options.version;
-			}
-		}
+		this.additionalRatings = { ...this.additionalRatings, ...obj.additionalRatings };
+		this.hide = { ...this.hide, ...obj.hide };
 
-		//additionalRatings option
-		if (typeof options.additionalRatings === "undefined")
-		{
-			options.additionalRatings =
-				{
-					on: true,
-					kinopoisk: false,
-					rottenTomatoes: false,
-					rMovies: false,
-					tmdb: false
-				};
-			additionalRatings = options.additionalRatings;
-		} else
-		{
-			if (typeof options.additionalRatings["kinopoisk"] === "undefined") { options.additionalRatings["kinopoisk"] = false; }
-			if (typeof options.additionalRatings["rottenTomatoes"] === "undefined") { options.additionalRatings["rottenTomatoes"] = false; }
-			if (typeof options.additionalRatings["rMovies"] === "undefined") { options.additionalRatings["rMovies"] = false; }
-			if (typeof options.additionalRatings["tmdb"] === "undefined") { options.additionalRatings["tmdb"] = false; }
-			additionalRatings = options.additionalRatings;
-		}
+		this.age = obj.age;
+		this.connections = obj.connections;
+		this.genre = obj.genre;
+		this.trailer = obj.trailer;
 
-		//hide option
-		if (typeof options.hide === "undefined")
-		{
-			options.hide =
-				{
-					on: true,
-					faq: true,
-					dyk: true,
-					userRev: false,
-					recVie: false
-				};
-			hide = options.hide;
-		} else
-		{
-			if (typeof options.hide["faq"] === "undefined") { options.hide["faq"] = true; }
-			if (typeof options.hide["dyk"] === "undefined") { options.hide["dyk"] = true; }
-			if (typeof options.hide["userRev"] === "undefined") { options.hide["userRev"] = false; }
-			if (typeof options.hide["recVie"] === "undefined") { options.hide["recVie"] = false; }
-			hide = options.hide;
-		}
-
-		//age option
-		if (typeof options.age === "undefined")
-		{
-			options.age = false;
-			age = options.age;
-		} else
-		{
-			age = options.age;
-		}
-
-		//genre option
-		if (typeof options.genre === "undefined")
-		{
-			options.genre = false;
-			genre = options.genre;
-		} else
-		{
-			genre = options.genre;
-		}
-
-		//connections option
-		if (typeof options.connections === "undefined")
-		{
-			options.connections = true;
-			connections = options.connections;
-		} else
-		{
-			connections = options.connections;
-		}
-
-		//trailer option
-		if (typeof options.trailer === "undefined")
-		{
-			options.trailer = true;
-			trailer = options.trailer;
-		} else
-		{
-			trailer = options.trailer;
-		}
-
-		//popup for movies option
-		if (typeof options.popupM === "undefined")
-		{
-			options.popupM = false;
-			popupM = options.popupM;
-		} else
-		{
-			popupM = options.popupM;
-		}
-
-		//popup for people option
-		if (typeof options.popupP === "undefined")
-		{
-			options.popupP = false;
-			popupP = options.popupP;
-		} else
-		{
-			popupP = options.popupP;
-		}
-	} catch (e) { console.error(e); }
+		this.popupM = obj.popupM;
+		this.popupP = obj.popupP;
+	}
 }
 
-function SetCacheObj()
+class Cache2
 {
-	try
+	constructor(versionCache)
 	{
-		var v = String(version).split('.');
-		v = v.slice(0, 2);
-		var ver = v[0] + "." + v[1];
+		this.versionCache = versionCache;
+	}
 
-		//Version
-		if (typeof cache.versionCache === "undefined")
+	then(resolve)
+	{
+		console.time("Cache2.then");
+		console.timeLog("Cache2.then");
+
+		Options2._GMHasValue("imdbe_cache2").then((r) =>
 		{
-			cache.versionCache = ver;
-			versionCache = cache.versionCache;
+			if (r === true)
+			{
+				GM.getValue("imdbe_cache2").then((v) =>
+				{
+					this.SetCache = JSON.parse(v);
+				});
+			} else
+			{
+				let stringStorage = JSON.stringify(this);
+
+				Options2._GMUpdate("cache2", stringStorage);
+			}
+
+			console.timeEnd("Cache2.then");
+			resolve("done");
+		});
+
+	}
+
+	set SetCache(obj)
+	{
+		if (obj["versionCache"] === this.versionCache)
+		{
+			let _k = Object.keys(obj)
+			for (let i = 0; i < _k.length; i++)
+			{
+				this[_k[i]] = obj[_k[i]];
+			}
+		}
+		//todo update cache
+	}
+
+	CheckData(_data)
+	{
+		//check with sorage timeid and update if its older
+		let _keys = Object.keys(this);
+		for (let i = 0; i <= _keys.length; i++)
+		{
+			if (i === _keys.length)
+			{
+				this[_data["id"]] = _data;
+				return;
+			}
+			if (_data["id"] === _keys[i])
+			{
+				if (this[_keys[i]]["dateId"] + oneMonth <= Date.now())
+				{
+					this[_keys[i]] = _data;
+					return;
+				}
+				return;
+			}
+		}
+	}
+
+	AddConnects(id, doc)
+	{
+		//if (typeof this[id] === "undefined")
+		//{
+		let c = {},
+			x = 0,
+			y = 0,
+			keys = [],
+			n = [],
+			divs = [];
+
+		let hrefs = $(doc).contents().find(".jumpto > a");
+		let parent = $(doc).contents().find("div.list").find('*');
+
+		for (let i = 0; i <= parent.length; i++)
+		{
+			if ($(parent[i]).prop("name"))
+			{
+				n[x] = i;
+				x++;
+			}
+
+			if (i === parent.length)
+			{
+				n[x] = i;
+				x++;
+			}
+
+		}
+		if (hrefs.length !== 0)
+		{
+			for (let i = 0; i < hrefs.length; i++)
+			{
+				keys[i] = $(hrefs[i]).attr("href").slice(1, $(hrefs[i]).attr("href").length);
+				c[i] =
+				{
+					name: $.trim($(doc).contents().find("#" + keys[i]).next().text())
+				};
+			}
 		} else
 		{
-			versionCache = cache.versionCache;
-			if (versionCache !== ver)
+			c[0] =
 			{
-				cache.versionCache = ver;
-				versionCache = cache.versionCache;
-				for (var prop in cache)
+				name: $.trim($(doc).contents().find(".li_group").text())
+			};
+		}
+		//console.log($("#" + keys[0]).next().text());
+		//console.log($("#" + keys[0]).next().next().is("div"));
+		//console.log(parent);
+		//console.log(c);
+		for (x = 0; x < n.length; x++)
+		{
+			for (let i = n[x]; i < n[x + 1]; i++)
+			{
+				//console.log($(parent[i]));
+				//console.log($(parent[i]).is("div"));
+				if ($(parent[i]).is("div"))
 				{
-					if (prop !== "versionCache")
+					divs[y] = $(parent[i]);
+					c[x][y] =
 					{
-						delete cache[prop];
+						nameMovie: $(divs[y]).contents()[0].innerHTML,
+						id: $($(divs[y]).contents()[0]).attr("href").match(/\/(tt\d+)/)[1],
+						year: $.trim($(divs[y]).contents()[1].nodeValue),
+						text: ($(divs[y]).contents()[3] === undefined ? "" : $(divs[y]).contents()[3].nodeValue)
+					};
+					y++;
+				}
+			}
+			y = 0;
+			divs = [];
+		}
+		//console.log(divs);
+		//console.log(finalObj);
+		//console.log(c);
+
+			this[id]["connects"] = c;
+			Options2._GMUpdate("cache2", this);
+		//} else { }
+
+	}
+
+	async AddRatings(what, id, doc)
+	{
+		let el, obj = {}, url , d;
+		switch (what)
+		{
+			case "kinopoisk": 
+				{
+					el = $(doc).contents().find("a[class*='styles_linkDark']").attr("href");
+
+					if (typeof el === "undefined")
+					{
+						obj = {
+							url: "https://www.kinopoisk.ru/index.php?level=7&from=forma&result=adv&m_act%5Bfrom%5D=forma&m_act%5Bwhat%5D=content&m_act%5Bfind%5D=" + this[id]["name"] + "&m_act%5Bcast%5D=" + this[id]["director"][0],
+							score: "N/A"
+						};
+						this[id]["ratings"]["kinopoisk"] = obj;
+					} else
+					{
+						obj.url = "https://www.kinopoisk.ru/film/" + el.match(/(\d)\w+/)[0];
+						obj.score = parseInt($(doc).contents().find("span.film-rating-value").text().slice(0, 3).split(".").join(""));
+
+						this[id]["ratings"]["kinopoisk"] = obj;
+					}
+
+					Options2._GMUpdate("cache2", this);
+					return;
+				}
+			case "rottenTomatoes":
+				{
+					url = $(doc).contents().find("p.title > a").attr("href");
+
+					if (typeof url !== "undefined")
+					{
+						d = await xmlIMDB("xml", url);
+					} else
+					{
+						url = $(doc).contents().find("a[href^='https://www.rottentomatoes.com/']").attr("href");
+
+						if (typeof url === "undefined")
+						{
+							obj = {
+								url: "https://www.rottentomatoes.com/search/?search=" + this[id]["name"],
+								score: "N/A"
+							};
+							this[id]["ratings"]["rottenTomatoes"] = obj;
+							Options2._GMUpdate("cache2", this);
+							return;
+						}
+					}
+
+					url = $(d).contents().find("a[href^='https://www.rottentomatoes.com/']").attr("href");
+					console.log(url);
+					if (typeof url === "undefined")
+					{
+						obj = {
+							url: "https://www.rottentomatoes.com/search/?search=" + this[id]["name"],
+							score: "N/A"
+						};
+						this[id]["ratings"]["rottenTomatoes"] = obj;
+						Options2._GMUpdate("cache2", this);
+						return;
+					}
+
+					d = await xmlIMDB("xml", url);
+
+					el = JSON.parse($(d.head).find("script[type='application/ld+json']").text());
+
+					if (typeof el === "undefined")
+					{
+						obj = {
+							url: "https://www.rottentomatoes.com/search/?search=" + this[id]["name"],
+							score: "N/A"
+						};
+						this[id]["ratings"]["rottenTomatoes"] = obj;
+						Options2._GMUpdate("cache2", this);
+						return;
+					}
+
+					obj.url = url;
+					obj.score = parseInt(el["aggregateRating"]["ratingValue"]);
+
+					this[id]["ratings"]["rottenTomatoes"] = obj;
+					Options2._GMUpdate("cache2", this);
+					return;
+				}
+			case "tmdb":
+				{
+					url = $(doc).contents().find("a.result").attr("href");
+
+					url = "https://www.themoviedb.org/" + url;
+
+					console.log(url);
+
+					if (typeof url === "undefined")
+					{
+						obj = {
+							url: "https://www.themoviedb.org/search?query=" + this[id]["name"],
+							score: "N/A"
+						};
+						this[id]["ratings"]["tmdb"] = obj;
+						Options2._GMUpdate("cache2", this);
+						return;
+					}
+
+					d = await xmlIMDB("xml", url);
+
+					el = $(d).contents().find("div.user_score_chart");
+					console.log(el);
+					if (typeof el === "undefined")
+					{
+						obj = {
+							url: "https://www.themoviedb.org/search?query=" + this[id]["name"] + " y:" + this[id]["year"],
+							score: "N/A"
+						};
+
+						this[id]["ratings"]["tmdb"] = obj;
+						Options2._GMUpdate("cache2", this);
+						return;
+					}
+
+					obj.url = url;
+					obj.score = parseInt($(el).attr("data-percent"));
+
+					if (obj.score === 0.0)
+						obj.score = "tbd";
+
+					this[id]["ratings"]["tmdb"] = obj;
+					Options2._GMUpdate("cache2", this);
+					return;
+				}
+			case "rMovies":
+				{
+					url = $(doc).contents().find("p.title > a").attr("href");
+
+					if (typeof url !== "undefined")
+					{
+						d = await xmlIMDB("xml", url);
+					} else
+					{
+						url = $(doc).contents().find("a[href^='https://youpoll.me/']:odd").attr("href");
+
+						if (typeof url === "undefined")
+						{
+							obj = {
+								url: "https://www.reddit.com/r/movies/search?q=" + this[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
+								score: "N/A"
+							};
+
+							this[id]["ratings"]["rMovies"] = obj;
+							Options2._GMUpdate("cache2", this);
+							return;
+						}
+					}
+
+					obj.url = url;
+
+					url = $(d.body).contents().find("a[href^='https://youpoll.me/']:odd").attr("href");
+
+					if (typeof url === "undefined")
+					{
+						obj = {
+							url: "https://www.reddit.com/r/movies/search?q=" + this[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
+							score: "N/A"
+						};
+
+						this[id]["ratings"]["rMovies"] = obj;
+						Options2._GMUpdate("cache2", this);
+						return;
+					}
+
+					d = await xmlIMDB("xml", url);
+
+					el = $(d.body).find("span.rating-mean-value").text().split(".").join("");
+
+					if (typeof el === "undefined")
+					{
+						obj = {
+							url: "https://www.reddit.com/r/movies/search?q=" + this[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
+							score: "N/A"
+						};
+
+						this[id]["ratings"]["rMovies"] = obj;
+						Options2._GMUpdate("cache2", this);
+						return;
+					}
+
+					obj.score = parseInt(el.slice(0, 2));
+
+					this[id]["ratings"]["rMovies"] = obj;
+					Options2._GMUpdate("cache2", this);
+					return;
+				}
+		}
+	}
+}
+
+class MovieData
+{
+	constructor(url, body)
+	{
+		//console.log($(body).find("script[id='__NEXT_DATA__']"));
+		let __NEXT_DATA__ = JSON.parse($(body).find("script[id='__NEXT_DATA__']").text());
+		if (typeof __NEXT_DATA__ === "undefined")
+			return console.error(__NEXT_DATA__);
+
+
+		let metaObj = __NEXT_DATA__["props"]["urqlState"];
+		console.log(metaObj);
+
+		this.url = url;
+		this.dateId = Date.now();
+		this.ratings = {};
+
+		for (let i = 0; i < Object.keys(metaObj).length; i++)
+		{
+			let _k = Object.keys(metaObj)[i];
+
+			if (typeof metaObj[_k]["data"]["title"] === "undefined")
+				continue;
+
+			if (typeof metaObj[_k]["data"]["title"]["originalTitleText"] !== "undefined")
+				this.name = metaObj[_k]["data"]["title"]["originalTitleText"]["text"];
+
+			if (typeof metaObj[_k]["data"]["title"]["releaseYear"] !== "undefined")
+				this.year = metaObj[_k]["data"]["title"]["releaseYear"]["year"];
+
+			if (typeof metaObj[_k]["data"]["title"]["releaseDate"] !== "undefined")
+				this.releaseDate = metaObj[_k]["data"]["title"]["releaseDate"]["year"] + "/" + metaObj[_k]["data"]["title"]["releaseDate"]["month"] + "/" + metaObj[_k]["data"]["title"]["releaseDate"]["day"];
+
+			if (typeof metaObj[_k]["data"]["title"]["plot"] !== "undefined")
+				this.summary = metaObj[_k]["data"]["title"]["plot"]["plotText"]["plainText"];
+
+			if (typeof metaObj[_k]["data"]["title"]["principalCredits"] !== "undefined")
+			{
+				let _credits = metaObj[_k]["data"]["title"]["principalCredits"];
+
+				for (let j = 0; j < _credits.length; j++)
+				{
+					let __credits = _credits[j]["credits"];
+
+					this[_credits[j]["category"]["id"]] = [];
+
+					for (let y = 0; y < __credits.length; y++)
+					{
+						let _obj = {
+							id: __credits[y]["name"]["id"],
+							name: __credits[y]["name"]["nameText"]["text"],
+						}
+						this[_credits[j]["category"]["id"]].push(_obj)
 					}
 				}
-				DeleteValues("imdbe_cache");
 			}
+
+			if (typeof metaObj[_k]["data"]["title"]["genres"] !== "undefined")
+			{
+				let _genres = metaObj[_k]["data"]["title"]["genres"]["genres"];
+
+				let __genres = [];
+
+				for (let j = 0; j < _genres.length; j++)
+				{
+					__genres.push(_genres[j]["id"]);
+				}
+				this.genres = __genres;
+			}
+
+			if (typeof metaObj[_k]["data"]["title"]["metacritic"] !== "undefined")
+			{
+				this.ratings["metacritic"] =
+					{
+					score: metaObj[_k]["data"]["title"]["metacritic"]["metascore"]["score"]
+					}
+			}
+
+			if (typeof metaObj[_k]["data"]["title"]["ratingsSummary"] !== "undefined" && typeof metaObj[_k]["data"]["title"]["ratingsSummary"]["aggregateRating"] !== "undefined" )
+			{
+				let _s = metaObj[_k]["data"]["title"]["ratingsSummary"]["aggregateRating"];
+				_s =_s.toString();
+				if (_s.includes("."))
+					_s = parseInt(_s.split(".").join(""));
+				else
+					_s = parseInt(_s + 0);
+				this.ratings["imdb"] =
+				{
+					score: _s
+				}
+			} 
+
+			if (typeof metaObj[_k]["data"]["title"]["id"] !== "undefined")
+				this.id = metaObj[_k]["data"]["title"]["id"];
+
+			if (typeof metaObj[_k]["data"]["title"]["primaryImage"] !== "undefined")
+				if (typeof metaObj[_k]["data"]["title"]["primaryImage"]["url"] !== "undefined")
+					this.image = metaObj[_k]["data"]["title"]["primaryImage"]["url"];
 		}
-	} catch (e) { console.error(e); }
+
+	}
+
+	then(resolve)
+	{
+		//
+	}
 }
-//Functions create object option and cache
+
+class PeopleData
+{
+	constructor(url, doc)
+	{
+		//console.log($(doc.head).find("script[type='application/ld+json']"));
+		let metaObj = JSON.parse($(doc.head).find("script[type='application/ld+json']").text());
+
+		if (typeof metaObj === "undefined")
+			return console.error(metaObj);
+		console.log(metaObj);
+
+		this.url = url;
+		this.id = metaObj["url"].match(/\/(tt\d+|nm\d+)\//)[1];
+
+		this.dateId = Date.now();
+
+		if (typeof metaObj.name === "undefined")
+			this.name = "-";
+		else
+			this.name =  metaObj.name;
+
+		if (typeof metaObj.birthDate === "undefined")
+			this.birthDate = "-";
+		else
+			this.birthDate = metaObj.birthDate;
+
+		if (typeof metaObj.deathDate === "undefined")
+			this.deathDate = "-";
+		else
+			this.deathDate = metaObj.deathDate;
+
+		let arr = [];
+
+		if (typeof metaObj.jobTitle === "undefined")
+			arr.push("-");
+		if (typeof metaObj.jobTitle === "string")
+			arr.push(metaObj.jobTitle);
+		if (typeof metaObj.jobTitle === "object")
+			arr = metaObj.jobTitle;
+
+		this.jobTitle = arr;
+
+		if (typeof metaObj.description === "undefined")
+			this.summaryPeople = "-";
+		else
+			this.summaryPeople =  metaObj.description;
+
+		if (typeof metaObj.image === "undefined")
+			this.image = "-";
+		else
+			this.image =  metaObj.image;
+
+	}
+
+	then(resolve)
+	{
+		//
+	}
+}
+
+//Start
+//Function main2
+void function Main2()
+{
+	//Options2._GMDeleteValues("all");
+	console.log("IMDB Enhancement v" + GM.info.script.version + " initialization");
+
+	//Set css
+	SetCSS();
+
+	//Set cache
+	let cache2 = new Cache2(0.1);
+	cache2.then(() =>
+	{
+		console.log(cache2);
+
+		//Set options
+		let options2 = new Options2(GM.info.script.version);
+		options2.then(() =>
+		{
+			console.log(options2);
+
+			//Console log prefs with value
+			GM.listValues().then(async (_v) =>
+			{
+				console.log("*prefs:");
+				console.log("*-----*");
+
+				for (let i = 0; i < _v.length; i++)
+				{
+					let str = await GM.getValue(_v[i]);
+					console.log("*" + _v[i] + ":" + str);
+					console.log(JSON.parse(str));
+					const byteSize = str => new Blob([str]).size;
+					console.log("Size " + _v[i] + ": " + FormatBytes(byteSize(str)) + "");
+				}
+
+				console.log("*-----*");
+
+				//On what page are we?
+				SwitchPage(GetPage(document.URL), cache2, options2);
+				console.log("Page number: " + whatPage + "/" + Page[whatPage] + " page");
+
+				//Set Html
+				SetHtml(options2);
+			});
+		});
+	});
+}();
+//Function main2
 //End
 
 //Start
 //Functions Get on what page are we and switch
-function SwitchPage()
+function SwitchPage(n, cache2, options2)
 {
-	switch (GetPage(document.URL))
+/*
+1-front page
+2-search page
+3-movie/TV page
+4-connections
+5-people(Actor,Actress, etc.) page
+10-anything else
+*/
+	let _data;
+	switch (n)
 	{
 		case 1:
-			SetUpForFront();
+			if (options2.popupM)
+				SetEvents("popupM", options2, cache2);
+
+			if (options2.popupP)
+				SetEvents("popupP", options2, cache2);
 			break;
 		case 2:
-			SetUpForSearch();
+			if (options2.popupM)
+				SetEvents("popupM", options2, cache2);
+
+			if (options2.popupP)
+				SetEvents("popupP", options2, cache2);
 			break;
 		case 3:
-			AddCache("movie", document.URL);
-			SetUpForMovie();
+			_data = new MovieData(document.URL, document.body);
+			console.log(_data);
+			cache2.CheckData(_data);
+			console.log(cache2);
+
+			if (options2.connections)
+				ShowConnections(document.URL, cache2);
+
+			if (options2.trailer)
+				ShowYoutubeUrl(document.URL, cache2);
+
+			if (options2.additionalRatings["on"])
+			{
+				if (options2.additionalRatings["kinopoisk"])
+					ShowRatings(document.URL, "kinopoisk", cache2);
+
+				if (options2.additionalRatings["rottenTomatoes"])
+					ShowRatings(document.URL, "rottenTomatoes", cache2);
+
+				if (options2.additionalRatings["rMovies"])
+					ShowRatings(document.URL, "rMovies", cache2);
+
+				if (options2.additionalRatings["tmdb"])
+					ShowRatings(document.URL, "tmdb", cache2);
+			}
+
+			if (options2.hide["on"])
+			{
+				//TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			}
+
+			if (options2.popupM)
+				SetEvents("popupM", options2, cache2);
+
+			if (options2.popupP)
+				SetEvents("popupP", options2, cache2);
+
 			break;
 		case 4:
-			AddCache("connects", document.URL);
-			SetUpForConnects();
+			//AddCache("connects", document.URL);
+			//SetUpForConnects();
+			if (options2.popupM)
+				SetEvents("popupM", options2, cache2);
+
+			if (options2.popupP)
+				SetEvents("popupP", options2, cache2);
 			break;
 		case 5:
-			AddCache("people", document.URL);
-			SetUpForPeople();
+			_data = new PeopleData(document.URL, document);
+			console.log(_data);
+			cache2.CheckData(_data);
+			console.log(cache2);
+
+			if (options2.age)
+				ShowAge();
+
+			if (options2.genre)
+			{
+				ShowGenre(cache2);
+				//event detecting click
+				SetEvents("clickFilm", options2, cache2);
+			}
+
+			if (options2.popupM)
+				SetEvents("popupM", options2, cache2);
+
+			if (options2.popupP)
+				SetEvents("popupP", options2, cache2);
 			break;
 		case 6:
 		case 10:
@@ -451,1715 +917,31 @@ function GetPage(url)
 	5-people(Actor,Actress, etc.) page
 	10-anything else
 	*/
-	try
+	const reg = new RegExp("https:\\/\\/www\\.imdb\\.com");
+
+	if (document.location.pathname === "/")
 	{
-		if (document.location.pathname === "/")
-		{
-			whatPage = 1;
-		} else if (url.match(/https:\/\/www\.imdb\.com\/search/i))
-		{
-			whatPage = 2;
-		} else if (url.match(/https:\/\/www\.imdb\.com\/title/i) && !url.match(/(movieconnections)|(tt_trv_(cnn|snd|trv|qu|gf|cc)|tt(cnn|snd|trv|qu|gf|cc))/i))
-		{
-			whatPage = 3;
-		} else if (url.match(/https:\/\/www\.imdb\.com\/title/i) && url.match(/(movieconnections)|(tt_trv_cnn|ttcnn)/i))
-		{
-			whatPage = 4;
-		} else if (url.match(/https:\/\/www\.imdb\.com\/name/i))
-		{
-			whatPage = 5;
-		} else
-		{
-			whatPage = 10;
-		}
-	} catch (e) { console.og(e); }
+		whatPage = 1;
+	} else if (url.match(new RegExp(reg.source + "/search", "i")))
+	{
+		whatPage = 2;
+	} else if (url.match(new RegExp(reg.source + "/title/", "i")) && !url.match(/(movieconnections)|(tt_trv_(cnn|snd|trv|qu|gf|cc)|tt(cnn|snd|trv|qu|gf|cc))/i))
+	{
+		whatPage = 3;
+	} else if (url.match(new RegExp(reg.source + "/title/", "i")) && url.match(/(movieconnections)|(tt_trv_cnn|ttcnn)/i))
+	{
+		whatPage = 4;
+	} else if (url.match(new RegExp(reg.source + "/name/","i")))
+	{
+		whatPage = 5;
+	} else
+	{
+		whatPage = 10;
+	}
+
 	return whatPage;
 }
 //Functions Get on what page are we and switch
-//End
-
-//-------------------------
-//SET UP STUFF BELOW
-//-------------------------
-
-//Start
-//Function check option on this Front page
-function SetUpForFront()
-{
-	if (popupM)
-	{
-		SetEvents("popupM");
-	}
-
-	if (popupP)
-	{
-		SetEvents("popupP");
-	}
-}
-//Function check option on this Front page
-//End
-
-//Start
-//Function check option on this Search page
-function SetUpForSearch()
-{
-	if (popupM)
-	{
-		SetEvents("popupM");
-	}
-
-	if (popupP)
-	{
-		SetEvents("popupP");
-	}
-}
-//Function check option on this Search page
-//End
-
-//Start
-//Function check option on this people page
-function SetUpForPeople()
-{
-	if (age)
-	{
-		GetContent.age();
-	}
-
-	if (genre)
-	{
-		GetContent.genre();
-		//event detecting click
-		SetEvents("clickFilm");
-	}
-
-	if (popupM)
-	{
-		SetEvents("popupM");
-	}
-
-	if (popupP)
-	{
-		SetEvents("popupP");
-	}
-}
-//Function check option on this people page
-//End
-
-
-
-//Start
-//Function check option on this Connects page
-function SetUpForConnects()
-{
-	if (popupM)
-	{
-		SetEvents("popupM");
-	}
-
-	if (popupP)
-	{
-		SetEvents("popupP");
-	}
-}
-//Function check option on this Connects page
-//End
-
-//Start
-//Function check option on this movie page
-function SetUpForMovie()
-{
-	if (connections)
-	{
-		ShowConnections(document.URL);
-	}
-
-	if (trailer)
-	{
-		ShowYoutubeUrl(document.URL);
-	}
-
-	if (additionalRatings["on"])
-	{
-		if (additionalRatings["kinopoisk"])
-		{
-			ShowRatings(document.URL, "kinopoisk");
-		}
-
-		if (additionalRatings["rottenTomatoes"])
-		{
-			ShowRatings(document.URL, "rottenTomatoes");
-		}
-
-		if (additionalRatings["rMovies"])
-		{
-			ShowRatings(document.URL, "rMovies");
-		}
-
-		if (additionalRatings["tmdb"])
-		{
-			ShowRatings(document.URL, "tmdb");
-		}
-	}
-
-	if (hide["on"])
-	{
-		//TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	}
-
-	if (popupM)
-	{
-		SetEvents("popupM");
-	}
-
-	if (popupP)
-	{
-		SetEvents("popupP");
-	}
-}
-//Function check option on this movie page
-//End
-
-//-------------------------
-//CORE STUFF BELOW
-//-------------------------
-
-//Start
-//Function Add to Cache movie/and anything
-//what: movie,rating,connects
-//doc: optional for xml
-async function AddCache(what, url, doc)
-{
-
-	var id = url.match(/\/(tt\d+|nm\d+)\//)[1];
-
-	function ChacheObj(id, what, url, doc)
-	{
-		console.log(metaObj);
-		if (what === "people" || what === "peopleXML")
-		{
-			if (typeof doc === "undefined")
-			{
-				cache[id] =
-					{
-						fullUrl: url.match(/https:\/\/www\.imdb\.com\/name\/(nm\d+)\//),
-						dateId: Date.now(),
-						name: GetContent.namePeople("page"),
-						birthDate: GetContent.birthDate("page"),
-						deathDate: GetContent.deathDate("page"),
-						jobTitle: GetContent.jobTitle("page"),
-						image: GetContent.imagePeople("page"),
-						//Props with Uppercase below
-						summaryPeople: GetContent.summaryPeople("page"),
-						custom: ""
-					};
-			} else
-			{
-				cache[id] =
-					{
-						fullUrl: ["https://www.imdb.com/name/" + id, id],
-						dateId: Date.now(),
-						name: GetContent.namePeople("xml", doc.body),
-						birthDate: GetContent.birthDate("xml", doc.body),
-						deathDate: GetContent.deathDate("xml", doc.body),
-						jobTitle: GetContent.jobTitle("xml", doc.body),
-						image: GetContent.imagePeople("xml", doc.body),
-						//Props with Uppercase below
-						summaryPeople: GetContent.summaryPeople("xml", doc.body),
-						custom: ""
-					};
-			}
-			return;
-		}
-		if (typeof doc === "undefined")
-		{
-			cache[id] =
-				{
-					fullUrl: url.match(/https:\/\/www\.imdb\.com\/title\/(tt\d+)\//),
-					dateId: Date.now(),
-					name: GetContent.name("page"),
-					imdbYear: GetContent.year("page"),
-					directors: GetContent.directors("page"),
-					writers: GetContent.writers("page"),
-					stars: GetContent.stars("page"),
-					ratings: {},
-					imdbRating: GetContent.imdbRating("page"),
-					connects: {},
-					image: GetContent.image("page"),
-					//Props with Uppercase below
-					genres: GetContent.genresP("page"),
-					summary: GetContent.summary("page"),
-					custom: ""
-				};
-		} else
-		{
-			cache[id] =
-				{
-					fullUrl: ["https://www.imdb.com/title/" + id, id],
-					dateId: Date.now(),
-					name: GetContent.name("xml", doc.body),
-					imdbYear: GetContent.year("xml", doc.body),
-					directors: GetContent.directors("xml", doc.body),
-					writers: GetContent.writers("xml", doc.body),
-					stars: GetContent.stars("xml", doc.body),
-					ratings: {},
-					imdbRating: GetContent.imdbRating("xml", doc.body),
-					connects: {},
-					image: GetContent.image("xml", doc.body),
-					//Props with Uppercase below
-					genres: GetContent.genresP("xml", doc.body),
-					summary: GetContent.summary("xml", doc.body),
-					custom: ""
-				};
-		}
-	}
-
-
-	switch (what) 
-	{
-		case "movie":
-			if (typeof metaObj === "undefined")
-				metaObj = JSON.parse($("head > script[type='application/ld+json']").text());
-			if (typeof cache[id] === "undefined")
-			{
-				ChacheObj(id, what, url, doc);
-				UpdateGM("cache");
-			} else
-			{
-				if ((cache[id]["dateId"] + oneMonth) <= Date.now())
-				{
-					ChacheObj(id, what, url, doc);
-					UpdateGM("cache");
-				}
-			}
-			break;
-		case "movieXML":
-			if (debug)
-			{
-				//console.log(doc.head);
-				//console.log($(doc.head).contents());
-				//console.log($(doc.head).find("script[type='application/ld+json']"));
-			}
-
-			metaObj = JSON.parse($(doc.head).find("script[type='application/ld+json']").text());
-
-			if (typeof cache[id] === "undefined")
-			{
-				ChacheObj(id, what, url, doc);
-				UpdateGM("cache");
-			} else
-			{
-				if ((cache[id]["dateId"] + oneMonth) <= Date.now())
-				{
-					ChacheObj(id, what, url, doc);
-					UpdateGM("cache");
-				}
-			}
-			break;
-		case "connects":
-			if (typeof cache[id] === "undefined")
-			{
-				//NEED THINK ABOUT, REQUEST IFRAME AND ADD MOVIE AND AFTER CONNECTIONS TODO
-				// TODO!!!!!!!!!!!!!!!!!!!!!!
-				xmlIMDB("movie", document.URL);
-				//AddCache("connects", document.URL);
-			} else
-			{
-				if ((cache[id]["dateId"] + oneMonth) <= Date.now())
-				{
-					//UPDATE???? TODO					
-				} else
-				{
-					if ($.isEmptyObject(cache[id]["connects"]))
-					{
-						cache[id].connects = GetContent.connects("page");
-						UpdateGM("cache");
-					}
-				}
-			}
-			break;
-		case "connectsXML":
-			//if (typeof metaObj === "undefined")
-			//	metaObj = JSON.parse($(doc.head).find("script[type='application/ld+json']").text());
-			if (typeof cache[id] === "undefined")
-			{
-				//NEED THINK ABOUT, REQUEST IFRAME AND ADD MOVIE AND AFTER CONNECTIONS TODO
-				//xmlIMDB("movie", document.URL);
-				//AddCache("connects", document.URL);
-				//
-				//CANT BE TRUE?????????????????????????????????????
-				//
-				console.log("IMPOSIBLE ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			} else
-			{
-				if ((cache[id]["dateId"] + oneMonth) <= Date.now())
-				{
-					//UPDATE???? TODO					
-				} else
-				{
-					if ($.isEmptyObject(cache[id]["connects"]))
-					{
-						cache[id].connects = GetContent.connects("xml", doc);
-						UpdateGM("cache");
-					}
-				}
-			}
-			break;
-		case "people":
-			if (typeof metaObj === "undefined")
-				metaObj = JSON.parse($("head > script[type='application/ld+json']").text());
-			if (typeof cache[id] === "undefined")
-			{
-				ChacheObj(id, what, url, doc);
-				UpdateGM("cache");
-			} else
-			{
-				if ((cache[id]["dateId"] + oneMonth) <= Date.now())
-				{
-					ChacheObj(id, what, url, doc);
-					UpdateGM("cache");
-				}
-			}
-			break;
-		case "peopleXML":
-
-			metaObj = JSON.parse($(doc.head).find("script[type='application/ld+json']").text());
-
-			if (typeof cache[id] === "undefined")
-			{
-				ChacheObj(id, what, url, doc);
-				UpdateGM("cache");
-			} else
-			{
-				if ((cache[id]["dateId"] + oneMonth) <= Date.now())
-				{
-					ChacheObj(id, what, url, doc);
-					UpdateGM("cache");
-				}
-			}
-			break;
-		case "kinopoisk":
-			if (typeof cache[id] === "undefined")
-			{
-				//
-				//CANT BE TRUE?????????????????????????????????????
-				//
-				console.log("IMPOSIBLE ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			} else
-			{
-				if ($.isEmptyObject(cache[id]["ratings"]))
-				{
-					GetContent.ratings("kinopoisk", doc, id).then(obj => cache[id].ratings["kinopoisk"] = obj);
-					UpdateGM("cache");				
-				} else
-				{
-					if ($.isEmptyObject(cache[id]["ratings"]["kinopoisk"]))
-					{
-						GetContent.ratings("kinopoisk", doc, id).then(obj => cache[id].ratings["kinopoisk"] = obj);
-						UpdateGM("cache");	
-					}
-				}
-			}
-			break;
-		case "rottenTomatoes":
-			if (typeof cache[id] === "undefined")
-			{
-				//
-				//CANT BE TRUE?????????????????????????????????????
-				//
-				console.log("IMPOSIBLE ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			} else
-			{
-				if ($.isEmptyObject(cache[id]["ratings"]))
-				{
-					await GetContent.ratings("rottenTomatoes", doc, id).then(obj => cache[id].ratings["rottenTomatoes"] = obj);
-					UpdateGM("cache");
-				} else
-				{
-					if ($.isEmptyObject(cache[id]["ratings"]["rottenTomatoes"]))
-					{
-						await GetContent.ratings("rottenTomatoes", doc, id).then(obj => cache[id].ratings["rottenTomatoes"] = obj);
-						UpdateGM("cache");
-					}
-				}
-			}
-			break;
-		case "tmdb":
-			if (typeof cache[id] === "undefined")
-			{
-				//
-				//CANT BE TRUE?????????????????????????????????????
-				//
-				console.log("IMPOSIBLE ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			} else
-			{
-				if ($.isEmptyObject(cache[id]["ratings"]))
-				{
-					await GetContent.ratings("tmdb", doc, id).then(obj => cache[id].ratings["tmdb"] = obj);
-					UpdateGM("cache");
-				} else
-				{
-					if ($.isEmptyObject(cache[id]["ratings"]["tmdb"]))
-					{
-						await GetContent.ratings("tmdb", doc, id).then(obj => cache[id].ratings["tmdb"] = obj);
-						UpdateGM("cache");
-					}
-				}
-			}
-			break;
-		case "rMovies":
-			if (typeof cache[id] === "undefined")
-			{
-				//
-				//CANT BE TRUE?????????????????????????????????????
-				//
-				console.log("IMPOSIBLE ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			} else
-			{
-				if ($.isEmptyObject(cache[id]["ratings"]))
-				{
-					await GetContent.ratings("rMovies", doc, id).then(obj => cache[id].ratings["rMovies"] = obj);
-					UpdateGM("cache");
-				} else
-				{
-					if ($.isEmptyObject(cache[id]["ratings"]["rMovies"]))
-					{
-						await GetContent.ratings("rMovies", doc, id).then(obj => cache[id].ratings["rMovies"] = obj);
-						UpdateGM("cache");
-					}
-				}
-			}
-			break;
-		default:
-			alert("fun:AddCache(" + what + "," + url + "," + doc + "). default switch");
-			break;
-	}
-}
-//Function Add to Cache movie/and anything
-//End
-
-//Start
-//Function get Content
-//BURN OUT thats why F!
-function GetContentF()
-{
-	//Start
-	//Function get connections on connections page
-	//what:Where are we get connections on page or xml. doc:optional for xml
-	function Connects(what, doc)
-	{
-		var c = {},
-			x = 0,
-			y = 0,
-			keys = [],
-			hrefs = $(".jumpto > a"),
-			n = [],
-			parent = $("div.list").find('*'),
-			divs = [];
-
-		switch (what) 
-		{
-			case "page":
-				try
-				{
-					for (let i = 0; i <= parent.length; i++)
-					{
-						if ($(parent[i]).prop("name"))
-						{
-							n[x] = i;
-							x++;
-						}
-
-						if (i === parent.length)
-						{
-							n[x] = i;
-							x++;
-						}
-
-					}
-					//console.log(hrefs);
-					if (hrefs.length !== 0)
-					{
-						for (let i = 0; i < hrefs.length; i++)
-						{
-							keys[i] = $(hrefs[i]).attr("href").slice(1, $(hrefs[i]).attr("href").length);
-							console.log(keys[i]);
-							c[i] =
-								{
-									name: $.trim($("#" + keys[i]).next().text())
-								};
-						}
-					} else
-					{
-						c[0] =
-							{
-								name: $.trim($(".li_group").text())
-							};
-					}
-					//console.log($("#" + keys[0]).next().text());
-					//console.log($("#" + keys[0]).next().next().is("div"));
-					//console.log(c);
-					//console.log(parent);
-					//console.log(n);
-					//console.log(n.length);
-					for (x = 0; x < n.length; x++)
-					{
-						for (let i = n[x]; i < n[x + 1]; i++)
-						{
-							console.log($(parent[i]));
-							console.log($(parent[i]).is("div"));
-							if ($(parent[i]).is("div"))
-							{
-								divs[y] = $(parent[i]);
-								console.log(c[0]);
-								c[x][y] =
-									{
-										nameMovie: $(divs[y]).contents()[0].innerHTML,
-										id: $($(divs[y]).contents()[0]).attr("href").match(/\/(tt\d+)/)[1],
-										year: $.trim($(divs[y]).contents()[1].nodeValue),
-										text: ($(divs[y]).contents()[3] === undefined ? "" : $(divs[y]).contents()[3].nodeValue)
-									};
-								y++;
-							}
-						}
-						y = 0;
-						divs = [];
-					}
-					//console.log(divs);
-					//console.log(finalObj);
-					console.log(c);
-					return c;
-				} catch (e) { console.log(e); }
-				break;
-			case "xml":
-				try
-				{
-					hrefs = $(doc).contents().find(".jumpto > a");
-					parent = $(doc).contents().find("div.list").find('*');
-
-					for (let i = 0; i <= parent.length; i++)
-					{
-						if ($(parent[i]).prop("name"))
-						{
-							n[x] = i;
-							x++;
-						}
-
-						if (i === parent.length)
-						{
-							n[x] = i;
-							x++;
-						}
-
-					}
-					if (hrefs.length !== 0)
-					{
-						for (let i = 0; i < hrefs.length; i++)
-						{
-							keys[i] = $(hrefs[i]).attr("href").slice(1, $(hrefs[i]).attr("href").length);
-							c[i] =
-								{
-									name: $.trim($(doc).contents().find("#" + keys[i]).next().text())
-								};
-						}
-					} else
-					{
-						c[0] =
-							{
-								name: $.trim($(doc).contents().find(".li_group").text())
-							};
-					}
-					//console.log($("#" + keys[0]).next().text());
-					//console.log($("#" + keys[0]).next().next().is("div"));
-					//console.log(parent);
-					//console.log(c);
-					for (x = 0; x < n.length; x++)
-					{
-						for (let i = n[x]; i < n[x + 1]; i++)
-						{
-							//console.log($(parent[i]));
-							//console.log($(parent[i]).is("div"));
-							if ($(parent[i]).is("div"))
-							{
-								divs[y] = $(parent[i]);
-								c[x][y] =
-									{
-										nameMovie: $(divs[y]).contents()[0].innerHTML,
-										id: $($(divs[y]).contents()[0]).attr("href").match(/\/(tt\d+)/)[1],
-										year: $.trim($(divs[y]).contents()[1].nodeValue),
-										text: ($(divs[y]).contents()[3] === undefined ? "" : $(divs[y]).contents()[3].nodeValue)
-									};
-								y++;
-							}
-						}
-						y = 0;
-						divs = [];
-					}
-					//console.log(divs);
-					//console.log(finalObj);
-					console.log(c);
-					return c;
-				} catch (e) { console.log(e); }
-				break;
-			default:
-				alert("fun:GetContent(what, doc).Connects(" + what + "," + doc + "). default switch");
-				break;
-		}
-	}
-	//Function get connections on connections page
-	//End
-
-	//Start
-	//Function get age on people page
-	function Age()
-	{
-		birthDate = $("#name-born-info > time");
-		deathDate = $("#name-death-info > time");
-		var born = new Date();
-		var age;
-
-		//If true change it
-		if (birthDate && birthDate.attr('datetime'))
-		{
-			date = birthDate.attr('datetime').split('-');
-			born.setFullYear(date[0]);
-			born.setMonth(date[1] - 1);
-			born.setDate(date[2]);
-
-			age = new Date() - born.getTime();
-			age = age / (1000 * 60 * 60 * 24 * 365.242199);
-
-			var years = Math.floor(age);
-			var months = Math.floor((age - years) * 12);
-			if (deathDate.length === 0)
-				ShowAge(birthDate, years, months);
-		}
-	}
-	//Function get age on people page
-	//End
-
-	//Start
-	//Function get name movie
-	//what:Where are we get connections on page or xml. doc:optional for xml
-	function Name(what, doc)
-	{
-		switch (what)
-		{
-			case "page":
-				/*
-				if (debug)
-				{
-					console.log($(".titleBar"));
-					console.log($("h1[itemprop='name']"));
-					console.log($("h1[itemprop='name']").contents()[0].nodeValue);
-					console.log($(".originalTitle"));
-				}
-				if ($(".originalTitle").length !== 0)
-				{
-					return $.trim($(".originalTitle").contents()[0].nodeValue);
-				} else
-				{
-					return $.trim($("h1[itemprop='name']").contents()[0].nodeValue);
-				}
-				*/
-				return metaObj.name;
-			case "xml":
-				/*
-				if ($(doc).contents().find(".originalTitle").length !== 0)
-				{
-					return $.trim($(doc).contents().find(".originalTitle").contents()[0].nodeValue);
-				} else
-				{
-					return $.trim($(doc).contents().find("h1[itemprop='name']").contents()[0].nodeValue);
-				}
-				*/
-				return metaObj.name;
-			default:
-				alert("fun:GetContent(what).name(" + what + "," + doc + "). default switch");
-				break;
-		}
-	}
-	//Function get name movie
-	//End
-
-	//Start
-	//Function get year movie
-	//what:Where are we get connections on page or xml. doc:optional for xml
-	function Year(what, doc)
-	{
-		switch (what)
-		{
-			case "page":
-				try
-				{
-					if (debug)
-					{
-						//console.log($(".titleBar"));
-						//console.log($("h1[itemprop='name']"));
-						//console.log(document.title.replace(/^(.+) \((\D*)([0-9]{4})(.*)$/gi, '$3'));
-						//console.log($("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML);
-						console.log(metaObj.datePublished);
-					}
-					//return encodeURIComponent(document.title.replace(/^(.+) \((\D*)([0-9]{4})(.*)$/gi, '$3'));
-					let moonLanding = new Date(metaObj.datePublished);
-					return moonLanding.getFullYear();
-				} catch (e) { console.log(e); }
-				break;
-			case "xml":
-				try
-				{
-					//return ($(doc).contents().find("h1[itemprop='name']").contents()[1] === undefined ? "-" : $.trim($(doc).contents().find("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML));
-					if (typeof metaObj.datePublished === "undefined")
-						return "-";
-					else
-					{
-						let moonLanding = new Date(metaObj.datePublished);
-						return moonLanding.getFullYear();
-					}
-				} catch (e) { console.log(e); }
-				break;
-			default:
-				alert("fun:GetContent(what).year(" + what + "," + doc + "). default switch");
-				break;
-		}
-	}
-	//Function get year movie
-	//End
-
-	//Start
-	//Function get imdb rating movie
-	//what:Where are we get connections on page or xml. doc:optional for xml
-	function ImdbRating(what, doc)
-	{
-		switch (what)
-		{
-			case "page":
-				try
-				{
-					if (debug)
-					{
-						console.log(metaObj.aggregateRating["ratingValue"]);
-					}
-					let rat = parseInt(metaObj.aggregateRating["ratingValue"].split(".").join(""));
-					return rat;
-				} catch (e) { console.log(e); }
-				break;
-			case "xml":
-				try
-				{
-					//return ($(doc).contents().find("h1[itemprop='name']").contents()[1] === undefined ? "-" : $.trim($(doc).contents().find("h1[itemprop='name']").contents()[1].childNodes[1].innerHTML));
-					if (typeof metaObj.aggregateRating === "undefined")
-						return "-";
-					else
-					{
-						let rat = parseInt(metaObj.aggregateRating["ratingValue"].split(".").join(""));
-						return rat;
-					}
-				} catch (e) { console.log(e); }
-				break;
-			default:
-				alert("fun:GetContent(what).year(" + what + "," + doc + "). default switch");
-				break;
-		}
-	}
-	//Function get imdb rating movie
-	//End
-
-	//Start
-	//Function get genres on movie page
-	//what:Where are we get connections on page or xml. doc:optional for xml
-	function GenresP(what, doc)
-	{
-		var genres = {},
-			g;
-
-		switch (what) 
-		{
-			case "page":
-				/*g = $("span[itemprop='genre']");
-
-				for (let i = 0; i < g.length; i++)
-				{
-					genres[$.trim(g[i].innerHTML)] = "https://www.imdb.com/genre/" + $.trim(g[i].innerHTML);
-				}
-
-				return genres;
-				*/
-
-				if (typeof metaObj.genre === "undefined")
-					return genres;
-
-				g = metaObj.genre;
-
-				if (typeof g === "string")
-					genres[g] = "https://www.imdb.com/search/title/?genres=" + g;
-				else
-				{
-					for (let i = 0; i < g.length; i++)
-					{
-						genres[g[i]] = "https://www.imdb.com/search/title/?genres=" + g[i];
-					}
-				}
-				return genres;
-			case "xml":
-				/*
-				g = $(doc).contents().find("span[itemprop='genre']");
-				if (debug)
-					console.log(g);
-				for (let i = 0; i < g.length; i++)
-				{
-					genres[$.trim(g[i].innerHTML)] = "https://www.imdb.com/genre/" + $.trim(g[i].innerHTML);
-				}
-				*/
-
-				if (typeof metaObj.genre === "undefined")
-					return genres;
-
-				g = metaObj.genre;
-
-				if (typeof g === "string")
-					genres[g] = "https://www.imdb.com/search/title/?genres=" + g;
-				else
-				{
-					for (let i = 0; i < g.length; i++)
-					{
-						genres[g[i]] = "https://www.imdb.com/search/title/?genres=" + g[i];
-					}
-				}
-				return genres;
-			default:
-				alert("fun:GetContent(what).genresP(" + what + "," + doc + "). default switch");
-				break;
-		}
-	}
-	//Function get genres on movie page
-	//End
-
-	//Start
-	//Function get directors movie
-	//what:Where are we get connections on page or xml. doc:optional for xml
-	function Directors(what, doc)
-	{
-		var d = [],
-			s,
-			spa,
-			str;
-
-		switch (what)
-		{
-			case "page":
-				try
-				{
-					/*
-					s = $(".credit_summary_item > .inline");
-					//console.log(s.contents());
-					for (let i = 0; i < s.length; i++)
-					{
-						if (s.contents()[i].nodeValue.indexOf("Director") !== -1)
-						{
-							//console.log(s.contents()[i]);
-							//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
-							spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
-							if (spa.length > 1)
-							{
-								for (let i = 0; i < spa.length; i++)
-								{
-									str = $.trim($(spa[i]).text());
-									str = str.replace(/,|\|/g, '');
-									if (str !== "")
-									{
-										d[i] = str;
-									}
-								}
-							} else
-							{
-								d[0] = $.trim(spa.text());
-							}
-						}
-					}
-					*/
-					if (typeof metaObj["director"] === "undefined")
-						return d[0] = "-";
-					if (metaObj["director"].length > 1)
-					{
-						for (let i = 0; i < metaObj["director"].length; i++)
-						{
-							d[i] = metaObj["director"][i]["name"];
-						}
-					} else
-					{
-						d[0] = metaObj["director"]["name"];
-					}
-					return d;
-				} catch (e) { console.log(e); }
-				break;
-			case "xml":
-				try
-				{
-					/*
-					s = $(doc).contents().find(".credit_summary_item > .inline");
-					//console.log(s.contents());
-					for (let i = 0; i < s.length; i++)
-					{
-						if (s.contents()[i].nodeValue.indexOf("Director") !== -1)
-						{
-							//console.log(s.contents()[i]);
-							//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
-							spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
-							if (spa.length > 1)
-							{
-								for (let i = 0; i < spa.length; i++)
-								{
-									str = $.trim($(spa[i]).text());
-									str = str.replace(/,|\|/g, '');
-									if (str !== "")
-									{
-										d[i] = str;
-									}
-								}
-							} else
-							{
-								d[0] = $.trim(spa.text());
-							}
-						}
-					}
-					return d;
-					*/
-					if (typeof metaObj["director"] === "undefined")
-						return d[0] = "-";
-					if (metaObj["director"].length > 1)
-					{
-						for (let i = 0; i < metaObj["director"].length; i++)
-						{
-							d[i] = metaObj["director"][i]["name"];
-						}
-					} else
-					{
-						d[0] = metaObj["director"]["name"];
-					}
-					return d;
-				} catch (e) { console.log(e); }
-				break;
-			default:
-				alert("fun:GetContent(what).directors(" + what + "," + doc + "). default switch");
-				break;
-		}
-	}
-	//Function get directors movie
-	//End
-
-	//Start
-	//Function get writes movie
-	//what:Where are we get connections on page or xml. doc:optional for xml
-	function Writers(what, doc)
-	{
-		var w = [],
-			s,
-			spa,
-			str;
-
-		switch (what)
-		{
-			case "page":
-				/*
-				s = $(".credit_summary_item > .inline");
-
-				for (let i = 0; i < s.length; i++)
-				{
-					if (s.contents()[i].nodeValue.indexOf("Writer") !== -1)
-					{
-						//console.log(s.contents()[i]);
-						//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
-						spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
-						if (spa.length > 1)
-						{
-							for (let i = 0; i < spa.length; i++)
-							{
-								str = $.trim($(spa[i]).text());
-								str = str.replace(/,|\|/g, '');
-								if (str !== "")
-								{
-									w[i] = str;
-								}
-							}
-						} else
-						{
-							w[0] = $.trim(spa.text());
-						}
-					}
-				}
-				*/
-				if (typeof metaObj["creator"] === "undefined")
-					return w[0] = "-";
-				if (metaObj["creator"].length > 1)
-				{
-					for (let i = 0; i < metaObj["creator"].length; i++)
-					{
-						if (metaObj["creator"][i]["@type"] === "Person")
-							w[i] = metaObj["creator"][i]["name"];
-					}
-				} else
-				{
-					w[0] = metaObj["creator"]["name"];
-				}
-				return w;
-			case "xml":
-				/*
-				s = $(doc).contents().find(".credit_summary_item > .inline");
-
-				for (let i = 0; i < s.length; i++)
-				{
-					if (s.contents()[i].nodeValue.indexOf("Writer") !== -1)
-					{
-						//console.log(s.contents()[i]);
-						//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
-						spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
-						if (spa.length > 1)
-						{
-							for (let i = 0; i < spa.length; i++)
-							{
-								str = $.trim($(spa[i]).text());
-								str = str.replace(/,|\|/g, '');
-								if (str !== "")
-								{
-									w[i] = str;
-								}
-							}
-						} else
-						{
-							w[0] = $.trim(spa.text());
-						}
-					}
-				}
-				return w;
-				*/
-				if (typeof metaObj["creator"] === "undefined")
-					return w[0] = "-";
-				if (metaObj["creator"].length > 1)
-				{
-					for (let i = 0; i < metaObj["creator"].length; i++)
-					{
-						if (metaObj["creator"][i]["@type"] === "Person")
-							w[i] = metaObj["creator"][i]["name"];
-					}
-				} else
-				{
-					w[0] = metaObj["creator"]["name"];
-				}
-				return w;
-			default:
-				alert("fun:GetWriters(" + what + "," + doc + "). default switch");
-				break;
-		}
-	}
-	//Function get writes movie
-	//End
-
-	//Start
-	//Function get stars movie
-	//what:Where are we get connections on page or xml. doc:optional for xml
-	function Stars(what, doc)
-	{
-		var st = [],
-			s,
-			spa,
-			str;
-
-		switch (what)
-		{
-			case "page":
-				/*
-				s = $(".credit_summary_item > .inline");
-
-				for (let i = 0; i < s.length; i++)
-				{
-					if (s.contents()[i].nodeValue.indexOf("Star") !== -1)
-					{
-						//console.log(s.contents()[i]);
-						//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
-						spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
-						if (spa.length > 1)
-						{
-							for (let i = 0; i < spa.length; i++)
-							{
-								str = $.trim($(spa[i]).text());
-								str = str.replace(/,|\|/g, '');
-								if (str !== "")
-								{
-									st[i] = str;
-								}
-							}
-						} else
-						{
-							st[0] = $.trim(spa.text());
-						}
-					}
-				}
-				*/
-				if (typeof metaObj["actor"] === "undefined")
-					return st[0] = "-";
-				if (metaObj["actor"].length > 1)
-				{
-					for (let i = 0; i < metaObj["actor"].length; i++)
-					{
-							st[i] = metaObj["actor"][i]["name"];
-					}
-				} else
-				{
-					st[0] = metaObj["actor"]["name"];
-				}
-				return st;
-			case "xml":
-				/*
-				s = $(doc).contents().find(".credit_summary_item > .inline");
-
-				for (let i = 0; i < s.length; i++)
-				{
-					if (s.contents()[i].nodeValue.indexOf("Star") !== -1)
-					{
-						//console.log(s.contents()[i]);
-						//console.log($.trim($(s.contents()[i].parentNode.parentNode.children).filter("span").text()));
-						spa = $(s.contents()[i].parentNode.parentNode.children).filter("span");
-						if (spa.length > 1)
-						{
-							for (let i = 0; i < spa.length; i++)
-							{
-								str = $.trim($(spa[i]).text());
-								str = str.replace(/,|\|/g, '');
-								if (str !== "")
-								{
-									st[i] = str;
-								}
-							}
-						} else
-						{
-							st[0] = $.trim(spa.text());
-						}
-					}
-				}
-				return st;
-				*/
-				if (typeof metaObj["actor"] === "undefined")
-					return st[0] = "-";
-				if (metaObj["actor"].length > 1)
-				{
-					for (let i = 0; i < metaObj["actor"].length; i++)
-					{
-						st[i] = metaObj["actor"][i]["name"];
-					}
-				} else
-				{
-					st[0] = metaObj["actor"]["name"];
-				}
-				return st;
-			default:
-				alert("fun:GetContent(what).stars(" + what + "," + doc + "). default switch");
-				break;
-		}
-	}
-	//Function get stars movie
-	//End
-
-	//Start
-	//Function get genre from cache
-	async function Genre()
-	{
-		try
-		{
-			var id,
-				rows = $("div.filmo-category-section").not("div[style='display:none;']").find("div.filmo-row b > a");
-			if (debug)
-			{
-				console.log(rows);
-				//console.log($("div.filmo-row"));
-				//console.log($("div.filmo-row[style!='display:none;']"));
-				//console.log($("div.filmo-row").not("div[style='display:none;']"));
-
-			}
-			for (let i = 0; i < rows.length; i++)
-			{
-				//console.log(rows[i].attr("href"));
-				id = $(rows[i]).attr("href").match(/\/(tt\d+)\//)[1];
-				//console.log(id);
-				if (typeof cache[id] === "undefined")
-				{
-					//console.log(id);
-					await xmlIMDB("movie", "/" + id + "/");
-					ShowGenre(id, rows[i]);
-				} else
-				{
-					//console.log(id);
-					ShowGenre(id, rows[i]);
-					//console.log("Yes");
-				}
-			}
-			//console.log(rows);
-		} catch (e) { console.error(e); }
-	}
-	//Function get genre from cache
-	//End
-
-	//Start
-	//Function get summary from cache
-	function Summary(what, doc)
-	{
-		try
-		{
-			var s;
-
-			switch (what)
-			{
-				case "page":
-					s = $(".summary_text").text();
-					if (debug) console.log(s);
-					return StripNewLines($.trim(s));
-				case "xml":
-					//return s = StripNewLines($.trim($(doc).contents().find(".summary_text").text()));
-					if (typeof metaObj["description"] === "undefined")
-						return "-";
-					return metaObj["description"];
-				default:
-					alert("fun:GetContent(what).Summary(" + what + "," + doc + "). default switch");
-					break;
-			}
-		} catch (e) { console.error(e); }
-	}
-	//Function get summary from cache
-	//End
-
-	//Start
-	//Function get ratings from sites
-	async function Ratings(what, doc, id)
-	{
-		try
-		{
-			var obj = {},
-				url,
-				el,
-				d = doc;
-			//
-			//TODO NEED CHECK FOR EXIST ELEMENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			//
-			switch (what)
-			{
-				case "kinopoisk":
-					/*
-					el = $(doc).contents().find("div.most_wanted");
-					if (typeof el === "undefined")
-					{
-						return obj = {
-							url: "https://www.kinopoisk.ru/index.php?level=7&from=forma&result=adv&m_act[from]=forma&m_act[what]=content&m_act[find]=" + cache[id]["name"] + "&m_act[year]=" + cache[id]["imdbYear"],
-							score: "N/A"
-						};
-					}
-
-					obj.url = "https://www.kinopoisk.ru" + $(el).contents().find("p.name a").attr("data-url");
-					obj.score = parseInt($(el).contents().find("div.rating").text().split(".").join(""));
-					if (debug)
-					{
-						console.log(doc);
-						console.log(el);
-						console.log(obj);
-					}
-					*/
-
-					el = $(doc).contents().find("a[class*='styles_linkDark']").attr("href");
-					//console.log(el);
-					if (typeof el === "undefined")
-					{
-						return obj = {
-							url: "https://www.kinopoisk.ru/index.php?level=7&from=forma&result=adv&m_act%5Bfrom%5D=forma&m_act%5Bwhat%5D=content&m_act%5Bfind%5D=" + cache[id]["name"] + "&m_act%5Bcast%5D=" + cache[id]["directors"][0],
-							score: "N/A"
-						};
-					}
-
-					obj.url = "https://www.kinopoisk.ru/film/" + el.match(/(\d)\w+/)[0];
-					obj.score = parseInt($(doc).contents().find("span.film-rating-value").text().slice(0, 3).split(".").join(""));
-
-					return obj;
-				case "rottenTomatoes":
-					url = $(d.body).contents().find("p.title > a").attr("href");
-
-					if (typeof url !== "undefined")
-					{
-						d = await xmlIMDB("xml", "/" + id + "/", url);
-						//AddCache("rMovies", document.URL, doc);
-					} else
-					{
-						url = $(d.body).contents().find("a[href^='https://www.rottentomatoes.com/']").attr("href");
-
-						if (typeof url === "undefined")
-						{
-							return obj = {
-								url: "https://www.rottentomatoes.com/search/?search=" + cache[id]["name"],
-								score: "N/A"
-							};
-						}
-					}
-
-					url = $(d.body).contents().find("a[href^='https://www.rottentomatoes.com/']").attr("href");
-					console.log(url);
-					if (typeof url === "undefined")
-					{
-						return obj = {
-							url: "https://www.rottentomatoes.com/search/?search=" + cache[id]["name"],
-							score: "N/A"
-						};
-					}
-
-					d = await xmlIMDB("xml", "/" + id + "/", url);
-
-					el = JSON.parse($(d.head).find("script[type='application/ld+json']").text());
-
-					if (typeof el === "undefined")
-					{
-						return obj = {
-							url: "https://www.rottentomatoes.com/search/?search=" + cache[id]["name"],
-							score: "N/A"
-						};
-					}
-
-					obj.url = url;
-					obj.score = parseInt(el["aggregateRating"]["ratingValue"]);
-
-					if (debug)
-					{
-						console.log(doc);
-						console.log(el);
-						console.log(obj);
-					}
-
-					return obj;
-				case "tmdb":
-					url = $(d).contents().find("a.result").attr("href");
-
-					url = "https://www.themoviedb.org/" + url;
-
-					console.log(url);
-
-					if (typeof url === "undefined")
-					{
-						return obj = {
-							url: "https://www.themoviedb.org/search?query=" + cache[id]["name"],
-							score: "N/A"
-						};
-					}
-
-					d = await xmlIMDB("xml", "/" + id + "/", url);
-
-					el = $(d).contents().find("div.user_score_chart");
-					console.log(el);
-					if (typeof el === "undefined")
-					{
-						return obj = {
-							url: "https://www.themoviedb.org/search?query=" + cache[id]["name"] + " y:" + cache[id]["imdbYear"],
-							score: "N/A"
-						};
-					}
-
-					obj.url = url;
-					obj.score = parseInt($(el).attr("data-percent"));
-
-					if (obj.score === 0.0)
-						obj.score = "tbd";
-
-					if (debug)
-					{
-						console.log(doc);
-						console.log(el);
-						console.log(obj);
-					}
-
-					return obj;
-				case "rMovies":
-					url = $(d.body).contents().find("p.title > a").attr("href");
-
-					if (typeof url !== "undefined")
-					{
-						d = await xmlIMDB("xml", "/" + id + "/", url);
-						//AddCache("rottenTomatoes", document.URL, doc);
-					} else
-					{
-						url = $(d.body).contents().find("a[href^='https://youpoll.me/']:odd").attr("href");
-
-						if (typeof url === "undefined")
-						{
-							return obj = {
-								url: "https://www.reddit.com/r/movies/search?q=" + cache[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
-								score: "N/A"
-							};
-						}
-					}
-
-					obj.url = url;
-
-					url = $(d.body).contents().find("a[href^='https://youpoll.me/']:odd").attr("href");
-
-					if (typeof url === "undefined")
-					{
-						return obj = {
-							url: "https://www.reddit.com/r/movies/search?q=" + cache[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
-							score: "N/A"
-						};
-					}
-
-					d = await xmlIMDB("xml", "/" + id + "/", url);
-
-					el = $(d.body).find("span.rating-mean-value").text().split(".").join("");
-
-					if (typeof el === "undefined")
-					{
-						return obj = {
-							url: "https://www.reddit.com/r/movies/search?q=" + cache[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
-							score: "N/A"
-						};
-					}
-
-					obj.score = parseInt(el.slice(0, 2));
-
-					if (debug)
-					{
-						console.log(doc);
-						console.log(el);
-						console.log(obj);
-					}
-					return obj;
-				case "xml":
-					return s = StripNewLines($.trim($(doc).contents().find(".summary_text").text()));
-				default:
-					alert("fun:GetContent(what).Ratings(" + what + "," + doc + "). default switch");
-					break;
-			}
-		} catch (e) { console.error(e); }
-	}
-	//Function get ratings from sites
-	//End
-
-
-	//Start
-	//Function get Poster of movie
-	function Image(what, doc)
-	{
-		try
-		{
-			var i;
-
-			switch (what)
-			{
-				case "page":
-					if (typeof metaObj.image === "undefined")
-						return "-";
-					return metaObj.image;
-				case "xml":
-					if (typeof metaObj.image === "undefined")
-						return "-";
-					return metaObj.image;
-				default:
-					alert("fun:GetContent(what).Image(" + what + "," + doc + "). default switch");
-					break;
-			}
-		} catch (e) { console.error(e); }
-	}
-	//Function get Poster of movie
-	//End
-
-
-	//Start
-	//Function get Name People 
-	function NamePeople(what, doc)
-	{
-		try
-		{
-			var i;
-
-			switch (what)
-			{
-				case "page":
-					if (typeof metaObj.name === "undefined")
-						return "-";
-					return metaObj.name;
-				case "xml":
-					if (typeof metaObj.name === "undefined")
-						return "-";
-					return metaObj.name;
-				default:
-					alert("fun:GetContent(what).NamePeople(" + what + "," + doc + "). default switch");
-					break;
-			}
-		} catch (e) { console.error(e); }
-	}
-	//Function get Name People 
-	//End
-
-
-	//Start
-	//Function get BirthDate People
-	function BirthDate(what, doc)
-	{
-		try
-		{
-			var i;
-
-			switch (what)
-			{
-				case "page":
-					if (typeof metaObj.birthDate === "undefined")
-						return "-";
-					return metaObj.birthDate;
-				case "xml":
-					if (typeof metaObj.birthDate === "undefined")
-						return "-";
-					return metaObj.birthDate;
-				default:
-					alert("fun:GetContent(what).BirthDate(" + what + "," + doc + "). default switch");
-					break;
-			}
-		} catch (e) { console.error(e); }
-	}
-	//Function get BirthDate People
-	//End
-
-	//Start
-	//Function get DeathDate People
-	function DeathDate(what, doc)
-	{
-		try
-		{
-			var i;
-
-			switch (what)
-			{
-				case "page":
-					if (typeof metaObj.deathDate === "undefined")
-						return "-";
-					return metaObj.deathDate;
-				case "xml":
-					if (typeof metaObj.deathDate === "undefined")
-						return "-";
-					return metaObj.deathDate;
-				default:
-					alert("fun:GetContent(what).DeathDate(" + what + "," + doc + "). default switch");
-					break;
-			}
-		} catch (e) { console.error(e); }
-	}
-	//Function get DeathDate People
-	//End
-
-
-	//Start
-	//Function get JobTitle People
-	function JobTitle(what, doc)
-	{
-		try
-		{
-			var i, arr = [];
-
-			switch (what)
-			{
-				case "page":
-					if (typeof metaObj.jobTitle === "undefined")
-						arr.push("-");
-					if (typeof metaObj.jobTitle === "string")
-						arr.push(metaObj.jobTitle);
-					if (typeof metaObj.jobTitle === "object")
-						arr = metaObj.jobTitle;
-					return arr;
-				case "xml":
-					if (typeof metaObj.jobTitle === "undefined")
-						arr.push("-");
-					if (typeof metaObj.jobTitle === "string")
-						arr.push(metaObj.jobTitle);
-					if (typeof metaObj.jobTitle === "object")
-						arr = metaObj.jobTitle;
-					return arr;
-				default:
-					alert("fun:GetContent(what).JobTitle(" + what + "," + doc + "). default switch");
-					break;
-			}
-		} catch (e) { console.error(e); }
-	}
-	//Function get JobTitle People
-	//End
-
-	//Start
-	//Function get SummaryPeople People
-	function SummaryPeople(what, doc)
-	{
-		try
-		{
-			var i;
-
-			switch (what)
-			{
-				case "page":
-					if (typeof metaObj.description === "undefined")
-						return "-";
-					return metaObj.description;
-				case "xml":
-					if (typeof metaObj.description === "undefined")
-						return "-";
-					return metaObj.description;
-				default:
-					alert("fun:GetContent(what).SummaryPeople(" + what + "," + doc + "). default switch");
-					break;
-			}
-		} catch (e) { console.error(e); }
-	}
-	//Function get SummaryPeople People
-	//End
-
-
-	//Start
-	//Function get ImagePeople People
-	function ImagePeople(what, doc)
-	{
-		try
-		{
-			var i;
-
-			switch (what)
-			{
-				case "page":
-					if (typeof metaObj.image === "undefined")
-						return "-";
-					return metaObj.image;
-				case "xml":
-					if (typeof metaObj.image === "undefined")
-						return "-";
-					return metaObj.image;
-				default:
-					alert("fun:GetContent(what).ImagePeople(" + what + "," + doc + "). default switch");
-					break;
-			}
-		} catch (e) { console.error(e); }
-	}
-	//Function get ImagePeople People
-	//End
-
-	return {
-		connects: Connects,
-		age: Age,
-		name: Name,
-		year: Year,
-		genresP: GenresP,
-		directors: Directors,
-		writers: Writers,
-		stars: Stars,
-		genre: Genre,
-		summary: Summary,
-		ratings: Ratings,
-		imdbRating: ImdbRating,
-		image: Image,
-		//People staff below
-		namePeople: NamePeople,
-		birthDate: BirthDate,
-		deathDate: DeathDate,
-		jobTitle: JobTitle,
-		summaryPeople: SummaryPeople,
-		imagePeople: ImagePeople
-	};
-}
-//Function get Content
 //End
 
 //-------------------------
@@ -2168,12 +950,18 @@ function GetContentF()
 
 //Start
 //Function xml/iframe on imdb
-function xmlIMDB(what, url, urlxml)
+function xmlIMDB(what, url, cache2)
 {
-	var id = url.match(/\/(tt\d+|nm\d+)\//)[1],
-		parser = new DOMParser(),
-		doc;
-	//console.log(id);
+	let id
+
+	if (what !== "xml")
+	{
+		id = url.match(/\/(tt\d+|nm\d+)\//)[1];
+	}
+
+	let parser = new DOMParser();
+	let doc;
+
 	switch (what)
 	{
 		case "connections":
@@ -2182,14 +970,15 @@ function xmlIMDB(what, url, urlxml)
 				GM.xmlHttpRequest({
 					method: "GET",
 					url: "https://www.imdb.com/title/" + id + "/movieconnections",
-					//headers: { "User-agent": navigator.userAgent, "Accept": "document" },
 					timeout: oneSecond * 5,
 					onload: function (response)
 					{
-						if (debug) console.log(response);
+						console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						AddCache("connectsXML", document.URL, doc.body);
-						resolve(ShowConnections(url));
+
+						cache2.AddConnects(id, doc.body);
+
+						resolve(ShowConnections(url, cache2));
 					},
 					onerror: function (e)
 					{
@@ -2200,17 +989,21 @@ function xmlIMDB(what, url, urlxml)
 		case "movie":
 			return new Promise(function (resolve, reject)
 			{
+				//console.log(what);
+				//console.log(url);
+				//console.log(cache2);
 				GM.xmlHttpRequest({
 					method: "GET",
 					url: "https://www.imdb.com/title/" + id,
-					//headers: { "User-agent": navigator.userAgent, "Accept": "document" },
 					timeout: oneSecond * 5,
 					onload: function (response)
 					{
-						if (debug) console.log(response);
+						console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						//console.log(doc);
-						resolve(AddCache("movieXML", "/" + id + "/", doc));
+
+						let _data = new MovieData("https://www.imdb.com/title/" + id, doc.body);
+						console.log(_data);
+						resolve(cache2.CheckData(_data));
 					},
 					onerror: function (e)
 					{
@@ -2221,17 +1014,21 @@ function xmlIMDB(what, url, urlxml)
 		case "people":
 			return new Promise(function (resolve, reject)
 			{
+				//console.log(what);
+				//console.log(url);
+				//console.log(cache2);
 				GM.xmlHttpRequest({
 					method: "GET",
 					url: "https://www.imdb.com/name/" + id,
-					//headers: { "User-agent": navigator.userAgent, "Accept": "document" },
 					timeout: oneSecond * 5,
 					onload: function (response)
 					{
-						if (debug) console.log(response);
+						console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						//console.log(doc);
-						resolve(AddCache("peopleXML", "/" + id + "/", doc));
+
+						let _data = new PeopleData("https://www.imdb.com/name/" + id, doc);
+						console.log(_data);
+						resolve(cache2.CheckData(_data));
 					},
 					onerror: function (e)
 					{
@@ -2244,15 +1041,16 @@ function xmlIMDB(what, url, urlxml)
 			{
 				GM.xmlHttpRequest({
 					method: "GET",
-					url: "https://www.kinopoisk.ru/index.php?level=7&from=forma&result=adv&m_act%5Bfrom%5D=forma&m_act%5Bwhat%5D=content&m_act%5Bfind%5D=" + cache[id]["name"] + "&m_act%5Bcast%5D=" + cache[id]["directors"][0],
+					url: "https://www.kinopoisk.ru/index.php?level=7&from=forma&result=adv&m_act%5Bfrom%5D=forma&m_act%5Bwhat%5D=content&m_act%5Bfind%5D=" + cache2[id]["name"] + "&m_act%5Bcast%5D=" + cache2[id]["director"][0]["name"],
 					//headers: { "User-agent": navigator.userAgent, "Accept": "document" },
 					timeout: oneSecond * 5,
 					onload: function (response)
 					{
-						if (debug) console.log(response);
+						console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						resolve(AddCache("kinopoisk", "/" + id + "/", doc.body));
-						//resolve(ShowRatings(document.URL, "kinopoisk"));
+
+						resolve(cache2.AddRatings("kinopoisk", id, doc.body));
+
 					},
 					onerror: function (e)
 					{
@@ -2265,15 +1063,15 @@ function xmlIMDB(what, url, urlxml)
 			{
 				GM.xmlHttpRequest({
 					method: "GET",
-					url: "https://i.reddit.com/r/discussionarchive/search?q=" + cache[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
+					url: "https://i.reddit.com/r/discussionarchive/search?q=" + cache2[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
 					headers: { "User-agent": "Mozilla/5.0 (Linux; Android 4.0.4; Galaxy Nexus Build/IMM76B) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.133 Mobile Safari/535.19", "Accept": "document" },
 					timeout: oneSecond * 5,
 					onload: function (response)
 					{
-						if (debug) console.log(response);
+						console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						resolve(AddCache("rottenTomatoes", "/" + id + "/", doc));
-						//resolve(ShowRatings(document.URL, "rottenTomatoes"));
+
+						resolve(cache2.AddRatings("rottenTomatoes", id, doc.body));
 					},
 					onerror: function (e)
 					{
@@ -2286,15 +1084,14 @@ function xmlIMDB(what, url, urlxml)
 			{
 				GM.xmlHttpRequest({
 					method: "GET",
-					url: "https://www.themoviedb.org/search?query=" + cache[id]["name"] + " y:" + cache[id]["imdbYear"],
-					//headers: { "User-agent": navigator.userAgent, "Accept": "document" },
+					url: "https://www.themoviedb.org/search?query=" + cache2[id]["name"] + " y:" + cache2[id]["year"],
 					timeout: oneSecond * 5,
 					onload: function (response)
 					{
-						if (debug) console.log(response);
+						console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						resolve(AddCache("tmdb", "/" + id + "/", doc.body));
-						//resolve(ShowRatings(document.URL, "tmdb"));
+
+						resolve(cache2.AddRatings("tmdb", id, doc.body));
 					},
 					onerror: function (e)
 					{
@@ -2307,15 +1104,15 @@ function xmlIMDB(what, url, urlxml)
 			{
 				GM.xmlHttpRequest({
 					method: "GET",
-					url: "https://i.reddit.com/r/discussionarchive/search?q=" + cache[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
+					url: "https://i.reddit.com/r/discussionarchive/search?q=" + cache2[id]["name"] + "&restrict_sr=on&sort=relevance&t=all",
 					headers: { "User-agent": "Mozilla/5.0 (Linux; Android 4.0.4; Galaxy Nexus Build/IMM76B) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.133 Mobile Safari/535.19", "Accept": "document" },
 					timeout: oneSecond * 5,
 					onload: function (response)
 					{
-						if (debug) console.log(response);
+						console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						resolve(AddCache("rMovies", "/" + id + "/", doc));
-						//resolve(ShowRatings(document.URL, "rMovies"));
+
+						resolve(cache2.AddRatings("rMovies", id, doc.body));
 					},
 					onerror: function (e)
 					{
@@ -2328,14 +1125,12 @@ function xmlIMDB(what, url, urlxml)
 			{
 				GM.xmlHttpRequest({
 					method: "GET",
-					url: urlxml,
-					//headers: { "User-agent": navigator.userAgent, "Accept": "document" },
+					url: url,
 					timeout: oneSecond * 5,
 					onload: function (response)
 					{
-						if (debug) console.log(response);
+						console.log(response);
 						doc = parser.parseFromString(response.responseText, "text/html");
-						//AddCache("tmdb", "/" + id + "/", doc.body);
 						console.log(doc);
 						resolve(doc);
 					},
@@ -2356,65 +1151,92 @@ function xmlIMDB(what, url, urlxml)
 
 //Start
 //Function show age on people page
-async function ShowAge(birthDate, years, months)
+function ShowAge()
 {
-	var container = " <span>(Age: " + years + " year" + (years === 1 ? '' : 's') + ", " + months + " month" + (months === 1 ? '' : 's') + ")</span>";
-	var adm = await GM.getValue("adm");
+	let birthDate = $("#name-born-info > time");
+	let deathDate = $("#name-death-info > time");
+	let born = new Date();
+	let age;
 
-	if (debug && adm && (document.URL.match(/https:\/\/www\.imdb\.com\/name\/nm1782299/i) || document.URL.match(/https:\/\/www\.imdb\.com\/name\/nm0914612/i)))
+	//If true change it
+	if (birthDate && birthDate.attr('datetime'))
 	{
-		var c = "<span>(Always 18)</span>";
-		$(c).insertAfter(birthDate)
-			.mouseover(function ()
-			{
-				$(this).text("(Age: " + years + " year" + (years === 1 ? '' : 's') + ", " + months + " month" + (months === 1 ? '' : 's') + ")");
-			})
-			.mouseout(function ()
-			{
-				$(this).text("(Always 18)");
-			});
-	} else
-	{
-		$(container).insertAfter(birthDate);
+		date = birthDate.attr('datetime').split('-');
+		born.setFullYear(date[0]);
+		born.setMonth(date[1] - 1);
+		born.setDate(date[2]);
+
+		age = new Date() - born.getTime();
+		age = age / (1000 * 60 * 60 * 24 * 365.242199);
+
+		let years = Math.floor(age);
+		let months = Math.floor((age - years) * 12);
+		if (deathDate.length === 0)
+		{
+			let container = " <span>(Age: " + years + " year" + (years === 1 ? '' : 's') + ", " + months + " month" + (months === 1 ? '' : 's') + ")</span>";
+
+			$(container).insertAfter(birthDate);
+		}
 	}
+
 }
 //Function show age on people page
 //End
 
 //Start
 //Function show genre on people page
-function ShowGenre(id, row)
+function ShowGenre(cache2)
 {
-	var g = "(";
-	var div = $(row).parent().parent();
-	//console.log(cache[id]["genres"]);
-	//console.log(Object.keys(cache[id]["genres"]).length);
-	for (let i = 0; i < Object.keys(cache[id]["genres"]).length; i++)
+	let id,
+		rows = $("div.filmo-category-section").not("div[style='display:none;']").find("div.filmo-row b > a");
+
+	for (let i = 0; i < rows.length; i++)
 	{
-		if (i === (Object.keys(cache[id]["genres"]).length - 1))
+		id = $(rows[i]).attr("href").match(/\/(tt\d+)\//)[1];
+
+		if (typeof cache2[id] === "undefined")
+			continue;
+
+		let g = "(";
+		let div = $(rows[i]).parent().parent();
+
+		for (let j = 0; j < cache2[id]["genres"].length; j++)
 		{
-			g += "<a href=" + Object.values(cache[id]["genres"])[i] + " style='font-size:11px;'>" + Object.keys(cache[id]["genres"])[i] + "</a>";
+			if (j === (cache2[id]["genres"].length - 1))
+			{
+				g += "<a href=https://www.imdb.com/search/title?genres=" + cache2[id]["genres"][j] + " style='font-size:11px;'>" + cache2[id]["genres"][j] + "</a>";
+			}
+			else
+			{
+				g += "<a href=https://www.imdb.com/search/title?genres=" + cache2[id]["genres"][j] + " style='font-size:11px;'>" + cache2[id]["genres"][j] + "</a>, ";
+			}
 		}
-		else
-		{
-			g += "<a href=" + Object.values(cache[id]["genres"])[i] + " style='font-size:11px;'>" + Object.keys(cache[id]["genres"])[i] + "</a>, ";
-		}
+		g += ") <br>";
+
+		$($(div).children("br")[0]).after(g);
 	}
-	g += ") <br>";
-	//console.log(g);
-	//console.log($(div).children("br")[0]);
-	$($(div).children("br")[0]).after(g);
 }
 //Function show genre on people page
 //End
 
 //Start
 //Function show Connections on movie page
-function ShowConnections(url)
+function ShowConnections(url, cache2)
 {
-	var id = url.match(/\/(tt\d+)\//)[1];
-	var contentH = "";
-	var contents = "";
+	//
+	//TODO CHANGE FOR NEW REDISIGN!
+	//
+	let id = url.match(/\/(tt\d+)\//)[1];
+	//console.log(id);
+	//console.log(cache2);
+	if ($.isEmptyObject(cache2[id]["connects"]))
+	{
+		xmlIMDB("connections", document.URL, cache2);
+		return;
+	}
+
+	let contentH = "";
+	let contents = "";
 
 	const begHead = "<div class='head'>\
 	<span id='hide-actress' class='hide-link' style='display: none;'> Hide & nbsp; <img src='http://ia.media-imdb.com/images/G/01/imdb/images/icons/hide-1061525577._CB522736167_.png' class='absmiddle' alt='Hide' width='18' height='16'></span>\
@@ -2430,32 +1252,26 @@ function ShowConnections(url)
 	const begContentRowEven = "<div class='filmo-row even' id='self-tt1001361'>";
 	const endContentRowEven = "</div>";
 
-	if ($.isEmptyObject(cache[id]["connects"]))
-	{
-		xmlIMDB("connections", document.URL);
-		return;
-	}
-
-	for (let i = 0; i < Object.keys(cache[id]["connects"]).length; i++)
+	for (let i = 0; i < Object.keys(cache2[id]["connects"]).length; i++)
 	{
 		contents = "";
 		//console.log(Object.keys(cache[id]["connects"]).length);
 		//SORT TODO FOLOWS FIRST AND FOLLOING BY SECCONG, AND MAkE SETTINGS BY SHOWING SPIN OFF OR NOT
-		for (let x = 0; x < (Object.keys(cache[id]["connects"][i]).length - 1); x++)
+		for (let x = 0; x < (Object.keys(cache2[id]["connects"][i]).length - 1); x++)
 		{
 			if (x % 2)
 			{
-				contents += begContentRowEven + "<span class='year_column'>&nbsp;" + cache[id]["connects"][i][x]["year"] + "</span>"
-					+ "<b><a href='https://www.imdb.com/title/" + cache[id]["connects"][i][x]["id"] + "'>" + cache[id]["connects"][i][x]["nameMovie"] + "</a></b>"
-					+ "<br>" + cache[id]["connects"][i][x]["text"] + endContentRowEven;
+				contents += begContentRowEven + "<span class='year_column'>&nbsp;" + cache2[id]["connects"][i][x]["year"] + "</span>"
+					+ "<b><a href='https://www.imdb.com/title/" + cache2[id]["connects"][i][x]["id"] + "'>" + cache2[id]["connects"][i][x]["nameMovie"] + "</a></b>"
+					+ "<br>" + cache2[id]["connects"][i][x]["text"] + endContentRowEven;
 			} else
 			{
-				contents += begContentRowOdd + "<span class='year_column'>&nbsp;" + cache[id]["connects"][i][x]["year"] + "</span>"
-					+ "<b><a href='https://www.imdb.com/title/" + cache[id]["connects"][i][x]["id"] + "'>" + cache[id]["connects"][i][x]["nameMovie"] + "</a></b>"
-					+ "<br>" + cache[id]["connects"][i][x]["text"] + endContentRowOdd;
+				contents += begContentRowOdd + "<span class='year_column'>&nbsp;" + cache2[id]["connects"][i][x]["year"] + "</span>"
+					+ "<b><a href='https://www.imdb.com/title/" + cache2[id]["connects"][i][x]["id"] + "'>" + cache2[id]["connects"][i][x]["nameMovie"] + "</a></b>"
+					+ "<br>" + cache2[id]["connects"][i][x]["text"] + endContentRowOdd;
 			}
 		}
-		contentH += begHead + "<a name='actress'>" + cache[id]["connects"][i]["name"] + "</a> (" + (Object.keys(cache[id]["connects"][i]).length - 1) + ")" + endHead + begContent + contents + endContent;
+		contentH += begHead + "<a name='actress'>" + cache2[id]["connects"][i]["name"] + "</a> (" + (Object.keys(cache2[id]["connects"][i]).length - 1) + ")" + endHead + begContent + contents + endContent;
 	}
 	console.log(contentH);
 
@@ -2467,20 +1283,15 @@ function ShowConnections(url)
 <div id='filmography'>" + contentH + "</div >\
 ");
 
-	if ($("#titleRecs").length === 0)
-	{
-		$("#titleCast").before(divConnections);
-	} else
-	{
-		$("#titleRecs").before(divConnections);
-	}
 
-	for (let i = 0; i < Object.keys(cache[id]["connects"]).length; i++)
+	$("section[data-testid='title-cast']").before(divConnections);
+
+	for (let i = 0; i < Object.keys(cache2[id]["connects"]).length; i++)
 	{
 		//console.log(((cache[id]["connects"][i]["name"] !== "Follows") | (cache[id]["connects"][i]["name"] !== "Followed by") ? "yes" : "no"));
-		if (cache[id]["connects"][i]["name"] !== "Follows")
+		if (cache2[id]["connects"][i]["name"] !== "Follows")
 		{
-			if (cache[id]["connects"][i]["name"] !== "Followed by")
+			if (cache2[id]["connects"][i]["name"] !== "Followed by")
 			{
 				$("#imdbe_divconnections").find(".head:eq(" + i + ")").next(".filmo-category-section").toggle();
 				//console.log($("#imdbe_divconnections").find(".head:eq(" + i + ")"));
@@ -2488,9 +1299,9 @@ function ShowConnections(url)
 		}
 	}
 
-	console.log(cache[id]["connects"]);
+	console.log(cache2[id]["connects"]);
 
-	if (Object.keys(cache[id]["connects"]).length > 0 || typeof cache[id]["connects"] === "undefined")
+	if (Object.keys(cache2[id]["connects"]).length > 0 || typeof cache2[id]["connects"] === "undefined")
 	{
 		//$("#filmography").append($("<div class=article></div>").html("Connections"));
 	} else
@@ -2498,362 +1309,212 @@ function ShowConnections(url)
 		console.log($("#filmography"));
 		$("#filmography").append($("<div class=article></div>").html("No Connections"));
 	}
+
 	SetEvents("connections");
 }
 //Function show Connections on movie page
 //End
 
-
 //Start
 //Function show Ratings on movies/tv page
-async function ShowRatings(url, which)
+async function ShowRatings(url, which, cache2)
 {
-	try
+	let id = url.match(/\/(tt\d+)\//)[1];
+
+	let revBar = $('ul[data-testid="reviewContent-all-reviews"]');
+	let html;
+
+	switch (which)
 	{
-		var id = url.match(/\/(tt\d+)\//)[1];
-		var revBar = $('.titleReviewBar');
-		var html;
-		const div = $('<div class="imdbe_revBarC">&nbsp;</div>');
-		if ($('.imdbe_revBarC').length === 0)
-		{
-			$('.plot_summary_wrapper').after(revBar);
-			revBar.before(div);
-			revBar.css("height", "auto");
-		}
+		case "kinopoisk":
+			if ($.isEmptyObject(cache2[id]["ratings"]["kinopoisk"]))
+			{
+				await xmlIMDB("kinopoisk", document.URL, cache2);
+			}
 
-		switch (which)
-		{
-			case "kinopoisk":
-				if ($.isEmptyObject(cache[id]["ratings"]["kinopoisk"]))
-				{
-					await xmlIMDB("kinopoisk", document.URL);
-				}
+			html = '<li role="presentation" class="ipc-inline-list__item ReviewContent__StyledListItem-vlmc3o-1 bUNAEL"><a href="' + cache2[id]["ratings"]["kinopoisk"]["url"] + '" class="ipc-link ipc-link--baseAlt ipc-link--touch-target ReviewContent__StyledTextLink-vlmc3o-2 lnlzUS isReview"><span class="three-Elements"><span class="score"><span class="score-meta" style="background-color:' + GetStringScore(cache2[id]["ratings"]["kinopoisk"]["score"])+'">' + cache2[id]["ratings"]["kinopoisk"]["score"] + '</span></span><span class="label">Kinopoisk</span></span></a></li>';
 
-				html = "\
-				<div class='titleReviewBarItem'>\
-                <a href='" + cache[id]["ratings"]["kinopoisk"]["url"] + "'><div\
-                    class='rt-consensus metacriticScore score_" + GetStringScore(cache[id]["ratings"]["kinopoisk"]["score"]) + " titleReviewBarSubItem'><span>" + cache[id]["ratings"]["kinopoisk"]["score"] + "</span></div></a>\
-               <div class='titleReviewBarSubItem'>\
-                   <div>\
-                       <a href='" + cache[id]["ratings"]["kinopoisk"]["url"] + "'>Kinopoisk</a>\
-                   </div>\
-                   <div>\
-                       <span class='subText'>\
-                           From <a href='https://www.kinopoisk.ru/' target='_blank'>Kinopoisk</a>\
-                       </span>\
-                   </div>\
-                </div>\
-				</div>\
-				<div class='divider'></div>";
+			revBar.append(html);
+			break;
+		case "rottenTomatoes":
+			if (typeof cache2[id]["ratings"]["rottenTomatoes"] === "undefined")
+			{
+				await xmlIMDB("rottenTomatoes", document.URL, cache2);
+			}
 
-				revBar.prepend(html);
-				break;
-			case "rottenTomatoes":
-				if (typeof cache[id]["ratings"]["rottenTomatoes"] === "undefined")
-				{
-					await xmlIMDB("rottenTomatoes", document.URL);
-				}
+			html = '<li role="presentation" class="ipc-inline-list__item ReviewContent__StyledListItem-vlmc3o-1 bUNAEL"><a href="' + cache2[id]["ratings"]["rottenTomatoes"]["url"] + '" class="ipc-link ipc-link--baseAlt ipc-link--touch-target ReviewContent__StyledTextLink-vlmc3o-2 lnlzUS isReview"><span class="three-Elements"><span class="score"><span class="score-meta" style="background-color:' + GetStringScore(cache2[id]["ratings"]["rottenTomatoes"]["score"]) + '">' + cache2[id]["ratings"]["rottenTomatoes"]["score"] + '</span></span><span class="label">Rotten Tomatoes</span></span></a></li>';
 
-				html = "\
-				<div class='titleReviewBarItem'>\
-                <a href='" + cache[id]["ratings"]["rottenTomatoes"]["url"] + "'><div\
-                    class='rt-consensus metacriticScore score_" + GetStringScore(cache[id]["ratings"]["rottenTomatoes"]["score"]) + " titleReviewBarSubItem'><span>" + cache[id]["ratings"]["rottenTomatoes"]["score"] + "</span></div></a>\
-               <div class='titleReviewBarSubItem'>\
-                   <div>\
-                       <a href='" + cache[id]["ratings"]["rottenTomatoes"]["url"] + "'>Rotten Tomatoes</a>\
-                   </div>\
-                   <div>\
-                       <span class='subText'>\
-                           From <a href='https://www.rottentomatoes.com/' target='_blank'>Rotten Tomatoes</a>\
-                       </span>\
-                   </div>\
-                </div>\
-				</div>\
-				<div class='divider'></div>";
+			revBar.append(html);
+			break;
+		case "tmdb":
+			if (typeof cache2[id]["ratings"]["tmdb"] === "undefined")
+			{
+				await xmlIMDB("tmdb", document.URL, cache2);
+			}
 
-				revBar.prepend(html);
-				break;
-			case "tmdb":
-				if (typeof cache[id]["ratings"]["tmdb"] === "undefined")
-				{
-					await xmlIMDB("tmdb", document.URL);
-				}
+			html = '<li role="presentation" class="ipc-inline-list__item ReviewContent__StyledListItem-vlmc3o-1 bUNAEL"><a href="' + cache2[id]["ratings"]["tmdb"]["url"] + '" class="ipc-link ipc-link--baseAlt ipc-link--touch-target ReviewContent__StyledTextLink-vlmc3o-2 lnlzUS isReview"><span class="three-Elements"><span class="score"><span class="score-meta" style="background-color:' + GetStringScore(cache2[id]["ratings"]["tmdb"]["score"]) + '">' + cache2[id]["ratings"]["tmdb"]["score"] + '</span></span><span class="label">The Movie DB</span></span></a></li>';
 
-				html = "\
-				<div class='titleReviewBarItem'>\
-                <a href='" + cache[id]["ratings"]["tmdb"]["url"] + "'><div\
-                    class='rt-consensus metacriticScore score_" + GetStringScore(cache[id]["ratings"]["tmdb"]["score"]) + " titleReviewBarSubItem'><span>" + cache[id]["ratings"]["tmdb"]["score"] + "</span></div></a>\
-               <div class='titleReviewBarSubItem'>\
-                   <div>\
-                       <a href='" + cache[id]["ratings"]["tmdb"]["url"] + "'>The Movie DB</a>\
-                   </div>\
-                   <div>\
-                       <span class='subText'>\
-                           From <a href='https://www.themoviedb.org/' target='_blank'>The Movie DB</a>\
-                       </span>\
-                   </div>\
-                </div>\
-				</div>\
-				<div class='divider'></div>";
+			revBar.append(html);
+			break;
+		case "rMovies":
+			if ($.isEmptyObject(cache2[id]["ratings"]["rMovies"]))
+			{
+				await xmlIMDB("rMovies", document.URL, cache2);
+			}
 
-				revBar.prepend(html);
-				break;
-			case "rMovies":
-				if ($.isEmptyObject(cache[id]["ratings"]["rMovies"]))
-				{
-					await xmlIMDB("rMovies", document.URL);
-				}
+			html = '<li role="presentation" class="ipc-inline-list__item ReviewContent__StyledListItem-vlmc3o-1 bUNAEL"><a href="' + cache2[id]["ratings"]["rMovies"]["url"] + '" class="ipc-link ipc-link--baseAlt ipc-link--touch-target ReviewContent__StyledTextLink-vlmc3o-2 lnlzUS isReview"><span class="three-Elements"><span class="score"><span class="score-meta" style="background-color:' + GetStringScore(cache2[id]["ratings"]["rMovies"]["score"]) + '">' + cache2[id]["ratings"]["rMovies"]["score"] + '</span></span><span class="label">r/Movies</span></span></a></li>';
 
-				html = "\
-				<div class='titleReviewBarItem'>\
-                <a href='" + cache[id]["ratings"]["rMovies"]["url"] + "'><div\
-                    class='rt-consensus metacriticScore score_" + GetStringScore(cache[id]["ratings"]["rMovies"]["score"]) + " titleReviewBarSubItem'><span>" + cache[id]["ratings"]["rMovies"]["score"] + "</span></div></a>\
-               <div class='titleReviewBarSubItem'>\
-                   <div>\
-                       <a href='" + cache[id]["ratings"]["rMovies"]["url"] + "'>r/Movies</a>\
-                   </div>\
-                   <div>\
-                       <span class='subText'>\
-                           From <a href='https://www.reddit.com/r/movies/' target='_blank'>r/Movies</a>\
-                       </span>\
-                   </div>\
-                </div>\
-				</div>\
-				<div class='divider'></div>";
+			revBar.append(html);
 
-				revBar.prepend(html);
-				break;
-			default:
-				alert("fun:ShowRatings(" + url + "," + which + "). default switch");
-				break;
-		}
-
-	} catch (e) { console.error(e); }
+			break;
+		default:
+			alert("fun:ShowRatings(" + url + "," + which + "). default switch");
+			break;
+	}
+	
 }
 //Function show Ratings on movies/tv page
 //End
 
-
 //Start
 //Function show PopUp 
-function ShowPopUp(event, what)
+async function ShowPopUp(event, what, cache2)
 {
-	if ($(event.target).attr("href").match(/(pro)/) || $(event.target).attr("href").match(/\/((tt\d+|nm\d+)\/(characters|fullcredits|reviews|trivia|faq|keywords|releaseinfo|registration|videogallery|mediaindex|movieconnection|resume|bio|awards))/))
+	if ($(event.target).attr("href").match(/(pro)/) || $(event.target).attr("href").match(/\/(tt\d+|nm\d+)\/\b/))
 		return;
 
-	var id = $(event.target).attr("href").match(/\/(tt\d+|nm\d+)\//)[1];
+	let id = $(event.target).attr("href").match(/\/(tt\d+|nm\d+)\//)[1];
 
-	const div = $("<div id=imdbe_popupDiv class='tooltip'></div>").html("LOADING...");
-
-	var tPosX = event.pageX - 250;
-	var tPosY = event.pageY + 25;
+	let tPosX = event.pageX - 250;
+	let tPosY = event.pageY + 2;
 
 	if (tPosX <= 0)
 		tPosX = 5;
 
-	var html = "<div class='lister-item imdbe_mode-advanced'>";
+	let imdbe_popupDiv = $("#imdbe_popupDiv");
 
-	if ($("#imdbe_popupDiv").length === 0)
-	{
-		div.appendTo('body');
-		$("#imdbe_popupDiv").hide();
+	let popupImage = $(imdbe_popupDiv).find("#popupImage");
+	let popupTitle = $(imdbe_popupDiv).find("#popupTitle");
+	let popupGenres = $(imdbe_popupDiv).find("#popupGenres");
+	let popupRatings = $(imdbe_popupDiv).find("#popupRatings");
+	let popupSummary = $(imdbe_popupDiv).find("#popupSummary");
+	let popupCast = $(imdbe_popupDiv).find("#popupCast");
 
-		//Event  TODO NEED BETTER WAY!!!
-		$("#imdbe_popupDiv").hover(function (e)
-		{
-			if (debug)
-			{
-				console.log("in: " + e.target);
-				console.log(e.target);
-			}
-		}, function (e)
-		{
-			if (debug)
-			{
-				console.log("out: " + e.target);
-				console.log(e.target);
-			}
-			$("#imdbe_popupDiv").hide(500);
-			clearTimeout(timeoutID);
-		});
-	} else
-	{
-		$("#imdbe_popupDiv").html("LOADING...")
-	}
-	//console.log(id);
+	$(popupTitle).empty();
+	$(popupGenres).empty();
+	$(popupRatings).empty();
+	$(popupSummary).empty();
+	$(popupCast).empty();
+
 
 	switch (what)
 	{
-		case "movie":
-			timeoutID = setTimeout(async function()
+		case "movie": {
+			$("#imdbe_popupDiv").show(oneSecond);
+
+			//place tooltip
+			$('div.tooltip').css({ 'position': 'absolute', 'top': tPosY, 'left': tPosX });
+
+			if (typeof cache2[id] === "undefined")
+				await xmlIMDB("movie", "/" + id + "/", cache2);
+
+			//image
+			$(popupImage).attr("style", "height: 200px;");
+			$(popupImage).attr("src", cache2[id]["image"]);
+			$(popupImage).attr("alt", cache2[id]["name"]);
+
+			//title
+			let _t = $("<h2 style='font-size: 20px;'></h2>").html("<a class='ipc-link ipc-link--baseAlt ipc-link--inherit-color' href=" + cache2[id]["url"] + ">" + cache2[id]["name"] + "</a> <span>(" + cache2[id]["year"] + ")</span>");
+			$(popupTitle).append(_t);
+
+			//genres
+			for (let i = 0; i < cache2[id]["genres"].length; i++)
 			{
-				$("#imdbe_popupDiv").show(oneSecond);
-				$('div.tooltip').css({ 'position': 'absolute', 'top': tPosY, 'left': tPosX });
-				if ($.isEmptyObject(cache[id]))
-					await xmlIMDB("movie", "/" + id + "/");
-				//console.log($("#imdbe_popupDiv"));
-				$("#imdbe_popupDiv")[0].innerHTML = "";
-				html += "<div class='imdbe_lister-item-image float-left'><img alt='" + cache[id]["name"] + "' class='loadlate' src='" + cache[id]["image"] + "' width='67' height='98'>\
-					</div>\
- <div class='imdbe_lister-item-content'><h3 class='lister-item-header'> <a href="+ cache[id]["fullUrl"][0] +">" + cache[id]["name"] + "</a><span class='lister-item-year text-muted unbold'>(" + cache[id]["imdbYear"] + ")</span></h3>\
-			<p class='text-muted'><span class='genre'>";
-				for (let i = 0; i < Object.keys(cache[id]["genres"]).length; i++)
-				{
-					if (i === (Object.keys(cache[id]["genres"]).length - 1))
-					{
-						html += "<a href=" + cache[id]["genres"][Object.keys(cache[id]["genres"])[i]] + ">" + Object.keys(cache[id]["genres"])[i] + "</a>";
-					}
-					else
-					{
-						html += "<a href=" + cache[id]["genres"][Object.keys(cache[id]["genres"])[i]] + ">" + Object.keys(cache[id]["genres"])[i] + "</a>, ";
-					}
-				}
-				html += "</span></p><div class='ratings-bar'><div class='inline-block ratings-imdb-rating' name='ir' data-value=" + cache[id]["imdbRating"] + "><span class='global-sprite rating-star imdb-rating'></span><strong>" + cache[id]["imdbRating"] + "</strong></div>";
+				let _a = $("<a class='ipc-link ipc-link--baseAlt ipc-link--inherit-color' href=https://www.imdb.com/search/title?genres=" + cache2[id]["genres"][i] + "><span>" + cache2[id]["genres"][i] + "</span>,</a>")
+				$(popupGenres).append(_a);
+			}
+			$("</br>").appendTo(popupGenres);
 
-				//TODO HERE ADITIONAL RATINGS!!!!!!!!!!!!!!!!!!!!
-					
-				html += "<p class='text-muted'>" + cache[id]["summary"] + "</p><p class=''>Directors: ";
+			//ratings
+			let _i = $("<span style='color:" + GetStringScore(cache2[id]["ratings"]["imdb"]["score"]) + "'> | Imdb: " + cache2[id]["ratings"]["imdb"]["score"] + "</span>");
+			$(popupRatings).prepend(_i);
 
-				if (typeof cache[id]["directors"] !== "string")
-				{
-					for (let i = 0; i < Object.keys(cache[id]["directors"]).length; i++)
-					{
-						if (i === (Object.keys(cache[id]["directors"]).length - 1))
-						{
-							html += "<a >" + Object.values(cache[id]["directors"])[i] + "</a>";
-						}
-						else
-						{
-							html += "<a >" + Object.values(cache[id]["directors"])[i] + "</a>, ";
-						}
-					}
-				} else
-				{
-					html += "<a >" + Object.values(cache[id]["directors"]) + "</a>";
-				}
+			let _m = $("<span style='color:" + GetStringScore(cache2[id]["ratings"]["metacritic"]["score"]) + "'> | Metacritic: " + cache2[id]["ratings"]["metacritic"]["score"] + "</span>");
+			$(popupRatings).prepend(_m);
 
-				html += "<span class='ghost'> | </span>Stars: ";
+			if (typeof cache2[id]["ratings"]["kinopoisk"] !== "undefined")
+			{
+				let _k = $("<span style='color:" + GetStringScore(cache2[id]["ratings"]["kinopoisk"]["score"]) + "'> | Kinopoisk: " + cache2[id]["ratings"]["kinopoisk"]["score"] + "</span>");
+				$(popupRatings).prepend(_k);
+			}
+			if (typeof cache2[id]["ratings"]["tmdb"] !== "undefined")
+			{
+				let _t = $("<span style='color:" + GetStringScore(cache2[id]["ratings"]["tmdb"]["score"]) + "'> | The Movie DB: " + cache2[id]["ratings"]["tmdb"]["score"] + "</span>");
+				$(popupRatings).prepend(_t);
+			}
+			if (typeof cache2[id]["ratings"]["rMovies"] !== "undefined")
+			{
+				$("<span style='color:" + GetStringScore(cache2[id]["ratings"]["rMovies"]["score"]) + "'> | r/Movie: " + cache2[id]["ratings"]["rMovies"]["score"] + "</span>").prependTo(popupRatings);
+			}
+			if (typeof cache2[id]["ratings"]["rottenTomatoes"] !== "undefined")
+			{
+				$("<span style='color:" + GetStringScore(cache2[id]["ratings"]["rottenTomatoes"]["score"]) + "'> | Rotten Tomatoes: " + cache2[id]["ratings"]["rottenTomatoes"]["score"] + "</span>").prependTo(popupRatings);
+			}
 
-				if (typeof cache[id]["stars"] !== "string")
-				{
-					for (let i = 0; i < Object.keys(cache[id]["stars"]).length; i++)
-					{
-						if (i === (Object.keys(cache[id]["stars"]).length - 1))
-						{
-							html += "<a>" + Object.values(cache[id]["stars"])[i] + "</a>";
-						}
-						else
-						{
-							html += "<a>" + Object.values(cache[id]["stars"])[i] + "</a>, ";
-						}
-					}
-				} else
-				{
-					html += "<a>" + Object.values(cache[id]["stars"]) + "</a>";
-				}
+			//summary
+			$("</br><p>" + cache2[id]["summary"] + "</p></br>").appendTo(popupSummary);
 
-				html += "<span class='ghost'> | </span>Writers: ";
+			//casts
+			$("<span>Director: </span>").appendTo(popupCast);
+			for (let i = 0; i < Object.keys(cache2[id]["director"]).length; i++)
+			{
+				$("<a class='ipc-link ipc-link--baseAlt ipc-link--inherit-color' href=/'" + cache2[id]["director"][Object.keys(cache2[id]["director"])[i]]["id"] + "'>" + cache2[id]["director"][Object.keys(cache2[id]["director"])[i]]["name"] + ",</a>").appendTo(popupCast);
+			}
 
-				if (typeof cache[id]["writers"] !== "string")
-				{
-					for (let i = 0; i < Object.keys(cache[id]["writers"]).length; i++)
-					{
-						if (i === (Object.keys(cache[id]["writers"]).length - 1))
-						{
-							html += "<a>" + Object.values(cache[id]["writers"])[i] + "</a>";
-						}
-						else
-						{
-							html += "<a>" + Object.values(cache[id]["writers"])[i] + "</a>, ";
-						}
-					}
-				} else
-				{
-					html += "<a>" + Object.values(cache[id]["writers"]) + "</a>";
-				}
+			$("<span class='ghost'> | Stars: </span>").appendTo(popupCast);
+			for (let i = 0; i < Object.keys(cache2[id]["cast"]).length; i++)
+			{
+				$("<a class='ipc-link ipc-link--baseAlt ipc-link--inherit-color' href=/'" + cache2[id]["cast"][Object.keys(cache2[id]["cast"])[i]]["id"] + "'>" + cache2[id]["cast"][Object.keys(cache2[id]["cast"])[i]]["name"] + ",</a>").appendTo(popupCast);
+			}
 
-				html += "</p></div></div>";
-
-				//console.info(html);
-
-				$("#imdbe_popupDiv").append(html);
-			}, 500);
-			
-			/*
-		<div class="lister-item mode-advanced">
-			 <div class="lister-item-image float-left">
-				<img alt="Avengers: Infinity War" class="loadlate" data-tconst="tt4154756" src="https://m.media-amazon.com/images/M/MV5BMjMxNjY2MDU1OV5BMl5BanBnXkFtZTgwNzY1MTUwNTM@._V1_UX67_CR0,0,67,98_AL_.jpg" width="67" height="98">
-			</div>
-        <div class="lister-item-content">
-			<h3 class="lister-item-header">
-				<a href="/title/tt4154756/?ref_=adv_li_tt">Avengers: Infinity War</a>
-				<span class="lister-item-year text-muted unbold">(2018)</span>
-			</h3>
-		<p class="text-muted ">
-            <span class="genre">Action, Adventure, Fantasy</span>
-		</p>
-    <div class="ratings-bar">
-		<div class="inline-block ratings-imdb-rating" name="ir" data-value="8.6">
-			<span class="global-sprite rating-star imdb-rating"></span>
-				<strong>8.6</strong>
-		</div>
-        <div class="inline-block ratings-metascore">
-			<span class="metascore  favorable">68</span>
-			Metascore
-        </div>
-    </div>
-
-	<p class="text-muted">
-    The Avengers and their allies must be willing to sacrifice all in an attempt to defeat the powerful Thanos before his blitz of devastation and ruin puts an end to the universe.</p>
-    <p class="">
-    Directors:
-		<a href="/name/nm0751577/?ref_=adv_li_dr_0">Anthony Russo</a>,
-		<a href="/name/nm0751648/?ref_=adv_li_dr_1">Joe Russo</a>
-                 <span class="ghost">|</span>
-    Stars:
-		<a href="/name/nm0000375/?ref_=adv_li_st_0">Robert Downey Jr.</a>,
-		<a href="/name/nm1165110/?ref_=adv_li_st_1">Chris Hemsworth</a>,
-		<a href="/name/nm0749263/?ref_=adv_li_st_2">Mark Ruffalo</a>,
-		<a href="/name/nm0262635/?ref_=adv_li_st_3">Chris Evans</a>
-    </p>
-    </div>
-    </div>
-			 */
+			$("<span class='ghost'> | Writers: </span>").appendTo(popupCast);
+			for (let i = 0; i < Object.keys(cache2[id]["writer"]).length; i++)
+			{
+				$("<a class='ipc-link ipc-link--baseAlt ipc-link--inherit-color' href=/'" + cache2[id]["writer"][Object.keys(cache2[id]["writer"])[i]]["id"] + "'>" + cache2[id]["writer"][Object.keys(cache2[id]["writer"])[i]]["name"] + ",</a>").appendTo(popupCast);
+			}
 			break;
+		}
 		case "people":
-			timeoutID = setTimeout(async function ()
 			{
-				$("#imdbe_popupDiv").show(oneSecond);
-				$('div.tooltip').css({ 'position': 'absolute', 'top': tPosY, 'left': tPosX });
-				if ($.isEmptyObject(cache[id]))
-					await xmlIMDB("people", "/" + id + "/");
-				$("#imdbe_popupDiv")[0].innerHTML = "";
-				html += "<div class='imdbe_lister-item-image float-left'><img alt='" + cache[id]["name"] + "' class='loadlate' src='" + cache[id]["image"] + "' width='67' height='98'>\
-					</div>\
- <div class='imdbe_lister-item-content'><h3 class='lister-item-header'> <a href=" + cache[id]["fullUrl"][0] +">" + cache[id]["name"] + "</a><span class='lister-item-year text-muted unbold'>(" + cache[id]["birthDate"] + " - " + cache[id]["deathDate"] + ")</span></h3>\
-			<p class='text-muted'><span class='genre'>";
+			$("#imdbe_popupDiv").show(oneSecond);
 
-				for (let i = 0; i < cache[id]["jobTitle"].length; i++)
-				{
-					if (i === (cache[id]["jobTitle"].length - 1))
-					{
-						html += cache[id]["jobTitle"][i];
-					}
-					else
-					{
-						html += cache[id]["jobTitle"][i] + ", ";
-					}
-				}
-				html += "</span></p><p class='text-muted'>" + cache[id]["summaryPeople"] + "</p>";
-				
-				html += "</p></div></div>";
+			//place tooltip
+			$('div.tooltip').css({ 'position': 'absolute', 'top': tPosY, 'left': tPosX });
 
-				//console.info(html);
+			if (typeof cache2[id] === "undefined")
+				await xmlIMDB("people", "/" + id + "/", cache2);
 
-				$("#imdbe_popupDiv").append(html);
-			}, 500);
+			//image
+			$(popupImage).attr("style", "height: 200px;");
+			$(popupImage).attr("src", cache2[id]["image"]);
+			$(popupImage).attr("alt", cache2[id]["name"]);
+
+			//title
+				let _t = $("<h2 style='font-size: 20px;'></h2>").html("<a class='ipc-link ipc-link--baseAlt ipc-link--inherit-color' href=" + cache2[id]["url"] + ">" + cache2[id]["name"] + "</a> <span>(" + cache2[id]["birthDate"] + " - " + cache2[id]["deathDate"] + ")</span>");
+			$(popupTitle).append(_t);
+
+			//genres
+			for (let i = 0; i < cache2[id]["jobTitle"].length; i++)
+			{
+				let _a = $("<span>," + cache2[id]["jobTitle"][i] + "</span>")
+				$(popupGenres).prepend(_a);
+			}
+
+			//summary
+				$("</br><p>" + cache2[id]["summaryPeople"] + "</p></br>").appendTo(popupSummary);
 
 			break;
+		}
 		default:
 			alert("fun:ShowPopUp(href, what).Ratings(" + href + "," + what + "). default switch");
 			break;
@@ -2863,24 +1524,20 @@ function ShowPopUp(event, what)
 //Function show PopUp 
 //End
 
-
 //Start
 //Function show Youtube Url search trailer on movies/tv page
-function ShowYoutubeUrl(url)
+function ShowYoutubeUrl(url, cache2)
 {
-	try
-	{
-		var id = url.match(/\/(tt\d+)\//)[1];
-		var slate = $("div.slate");
-		if (debug)
-			console.log(slate);
-		if (slate.length !== 0)
-			return;
-		var div = $("<div id=imdbe_divtrailer ></div>").html("<h1> \
-<a href='https://www.youtube.com/results?search_query=" + cache[id]["name"] + " trailer'>Search trailer on Youtube</a></h1 >\
+	let id = url.match(/\/(tt\d+)\//)[1];
+	let slate = $("div.ipc-slate");
+
+	if (slate.length !== 0)
+		return;
+
+	let div = $("<div id=imdbe_divtrailer ></div>").html("<h1> \
+<a href='https://www.youtube.com/results?search_query=" + cache2[id]["name"] + " trailer'>Search trailer on Youtube</a></h1 >\
 ");
 		$("div.plot_summary_wrapper").prepend(div);
-	} catch (e) { console.error(e); }
 }
 //Function show Youtube Url search trailer on movies/tv page
 //End
@@ -2893,12 +1550,7 @@ function SetCSS()
 
 	/*Settings Filled icon by Icons8 */
 	/* Customizes Settings Filled icon */
-	$("head").append($("<style type=text/css></style>").text(".icons8-Settings-Filled { \
-	background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB2ZXJzaW9uPSIxLjAiIHg9IjBweCIgeT0iMHB4IiB2aWV3Qm94PSIwIDAgNTAgNTAiIGZpbGw9IiNmYWxzZSIgPjxnIGlkPSJzdXJmYWNlMSI+PHBhdGggc3R5bGU9IiAiIGQ9Ik0gNTAgMjguNzkyOTY5IEwgNTAgMjEuMTA1NDY5IEwgNDIuNjU2MjUgMTkuOTA2MjUgQyA0Mi4yNzM0MzggMTguNTc4MTI1IDQxLjc0NjA5NCAxNy4zMDQ2ODggNDEuMDgyMDMxIDE2LjEwMTU2MyBMIDQ1LjM1OTM3NSAxMC4wMDM5MDYgTCAzOS45MjE4NzUgNC41NzAzMTMgTCAzMy45MDIzNDQgOC44OTg0MzggQyAzMi42ODc1IDguMjIyNjU2IDMxLjQwMjM0NCA3LjY4NzUgMzAuMDcwMzEzIDcuMzA0Njg4IEwgMjguNzg5MDYzIC0wLjAwMzkwNjI1IEwgMjEuMTAxNTYzIC0wLjAwMzkwNjI1IEwgMTkuOTE0MDYzIDcuMjgxMjUgQyAxOC41NzAzMTMgNy42NjAxNTYgMTcuMjg1MTU2IDguMTg3NSAxNi4wNzgxMjUgOC44NTU0NjkgTCAxMC4wNzAzMTMgNC41NjY0MDYgTCA0LjYzNjcxOSAxMCBMIDguODU5Mzc1IDE2LjAzOTA2MyBDIDguMTc5Njg4IDE3LjI2MTcxOSA3LjY0MDYyNSAxOC41NTQ2ODggNy4yNTM5MDYgMTkuODk4NDM4IEwgMCAyMS4xMDU0NjkgTCAwIDI4Ljc5Mjk2OSBMIDcuMjQyMTg4IDMwLjA3NDIxOSBDIDcuNjI4OTA2IDMxLjQyMTg3NSA4LjE2NDA2MyAzMi43MTQ4NDQgOC44NDc2NTYgMzMuOTM3NSBMIDQuNTY2NDA2IDM5LjkyMTg3NSBMIDEwIDQ1LjM2MzI4MSBMIDE2LjA0Njg3NSA0MS4xMjg5MDYgQyAxNy4yNjU2MjUgNDEuODAwNzgxIDE4LjU1NDY4OCA0Mi4zMzIwMzEgMTkuODkwNjI1IDQyLjcxNDg0NCBMIDIxLjEwNTQ2OSA1MC4wMDM5MDYgTCAyOC43ODkwNjMgNTAuMDAzOTA2IEwgMzAuMDg1OTM4IDQyLjY5NTMxMyBDIDMxLjQyNTc4MSA0Mi4zMDQ2ODggMzIuNzA3MDMxIDQxLjc2OTUzMSAzMy45MTQwNjMgNDEuMDkzNzUgTCA0MCA0NS4zNjMyODEgTCA0NS40Mzc1IDM5LjkyMTg3NSBMIDQxLjA4OTg0NCAzMy44ODY3MTkgQyA0MS43NTc4MTMgMzIuNjc5Njg4IDQyLjI4MTI1IDMxLjQwNjI1IDQyLjY2MDE1NiAzMC4wODIwMzEgWiBNIDI1IDMyIEMgMjEuMTQwNjI1IDMyIDE4IDI4Ljg1OTM3NSAxOCAyNSBDIDE4IDIxLjE0MDYyNSAyMS4xNDA2MjUgMTggMjUgMTggQyAyOC44NTkzNzUgMTggMzIgMjEuMTQwNjI1IDMyIDI1IEMgMzIgMjguODU5Mzc1IDI4Ljg1OTM3NSAzMiAyNSAzMiBaICI+PC9wYXRoPjwvZz48L3N2Zz4=') 50% 50% no-repeat;\
-	background-size: 100%;\
-	width: 40px;\
-	height: 40px;\
-}"));
+	$("head").append($("<style type=text/css></style>").text("div.imdbe_image {width: 40px;height: 40px;background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iaXNvLTg4NTktMSI/Pg0KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDE5LjAuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPg0KPHN2ZyB2ZXJzaW9uPSIxLjEiIGlkPSJDYXBhXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4Ig0KCSB2aWV3Qm94PSIwIDAgNTEyIDUxMiIgc3R5bGU9ImVuYWJsZS1iYWNrZ3JvdW5kOm5ldyAwIDAgNTEyIDUxMjsiIHhtbDpzcGFjZT0icHJlc2VydmUiPg0KPGNpcmNsZSBzdHlsZT0iZmlsbDojRkZENDAwOyIgY3g9IjI1NiIgY3k9IjI1NiIgcj0iMjU2Ii8+DQo8cGF0aCBzdHlsZT0iZmlsbDojRkY5RjAwOyIgZD0iTTUxMiwyNTZjMC01LTAuMTU5LTkuOTYzLTAuNDQyLTE0Ljg5MkwzNjguNzI1LDk4LjI3NUwzNjIsMTE4bC0yMS4yODktMWwtNTIuOTg3LTUzTDY0LDI4Ny43MjQNCglsNTMsNTIuOTg3bDI2LjAwMyw3Mi43NDJsOTguMTA1LDk4LjEwNUMyNDYuMDM3LDUxMS44NDEsMjUxLDUxMiwyNTYsNTEyQzM5Ny4zODUsNTEyLDUxMiwzOTcuMzg1LDUxMiwyNTZ6Ii8+DQo8cGF0aCBzdHlsZT0iZmlsbDojNUE1QTVBOyIgZD0iTTQ0OCwyODcuNzI0di02My40NDlsLTUyLjA1MS0xMC4zNWMtMi45MjQtOS40NS02LjUyNS0xOC40NS0xMS4yNS0yNy4yMjVsMjkuMDI2LTQzLjQyNWwtNDUtNDUNCglMMzI1LjMsMTI3LjMwMWMtOC43NzUtNC43MjUtMTcuNzc2LTguMzI2LTI3LjIyNS0xMS4yNUwyODcuNzI0LDY0aC02My40NDlsLTEwLjM1LDUyLjA1MWMtOS40NSwyLjkyNC0xOC40NSw2LjUyNS0yNy4yMjUsMTEuMjUNCglsLTQzLjQyNS0yOS4wMjZsLTQ1LDQ1bDI5LjAyNiw0My40MjVjLTQuNzI1LDguNzc1LTguMzI2LDE3Ljc3Ni0xMS4yNSwyNy4yMjVMNjQsMjI0LjI3NnY2My40NDlsNTIuMDUxLDEwLjM1DQoJYzIuOTI0LDkuNDUsNi41MjUsMTguNDUsMTEuMjUsMjcuMjI1bC0yOS4wMjYsNDMuNDI1bDQ1LDQ1bDQzLjQyNS0yOS4wMjZjOC43NzUsNC43MjUsMTcuNzc2LDguMzI2LDI3LjIyNSwxMS4yNUwyMjQuMjc2LDQ0OA0KCWg2My40NDlsMTAuMzUtNTIuMDUxYzkuNDUtMi45MjQsMTguNDUtNi41MjUsMjcuMjI1LTExLjI1bDQzLjQyNSwyOS4wMjZsNDUtNDVMMzg0LjY5OSwzMjUuMw0KCWM0LjcyNS04Ljc3NSw4LjMyNi0xNy43NzYsMTEuMjUtMjcuMjI1TDQ0OCwyODcuNzI0eiBNMjU2LDMzNC43NWMtNDMuNDI1LDAtNzguNzUtMzUuMzI1LTc4Ljc1LTc4Ljc1czM1LjMyNS03OC43NSw3OC43NS03OC43NQ0KCXM3OC43NSwzNS4zMjUsNzguNzUsNzguNzVTMjk5LjQyNSwzMzQuNzUsMjU2LDMzNC43NXoiLz4NCjxwYXRoIHN0eWxlPSJmaWxsOiM0NDQ0NDQ7IiBkPSJNMzk1Ljk0OSwyOTguMDc1Yy0yLjkyNCw5LjQ1LTYuNTI1LDE4LjQ1LTExLjI1LDI3LjIyNWwyOS4wMjYsNDMuNDI1bC00NSw0NUwzMjUuMywzODQuNjk5DQoJYy04Ljc3NSw0LjcyNS0xNy43NzYsOC4zMjYtMjcuMjI1LDExLjI1TDI4Ny43MjQsNDQ4SDI1NlYzMzQuNzVjNDMuNDI1LDAsNzguNzUtMzUuMzI1LDc4Ljc1LTc4Ljc1cy0zNS4zMjUtNzguNzUtNzguNzUtNzguNzVWNjQNCgloMzEuNzI0bDEwLjM1LDUyLjA1MWM5LjQ1LDIuOTI0LDE4LjQ1LDYuNTI1LDI3LjIyNSwxMS4yNWw0My40MjUtMjkuMDI2bDQ1LDQ1TDM4NC42OTksMTg2LjcNCgljNC43MjUsOC43NzUsOC4zMjYsMTcuNzc2LDExLjI1LDI3LjIyNUw0NDgsMjI0LjI3NnY2My40NDlMMzk1Ljk0OSwyOTguMDc1eiIvPg0KPGc+DQo8L2c+DQo8Zz4NCjwvZz4NCjxnPg0KPC9nPg0KPGc+DQo8L2c+DQo8Zz4NCjwvZz4NCjxnPg0KPC9nPg0KPGc+DQo8L2c+DQo8Zz4NCjwvZz4NCjxnPg0KPC9nPg0KPGc+DQo8L2c+DQo8Zz4NCjwvZz4NCjxnPg0KPC9nPg0KPGc+DQo8L2c+DQo8Zz4NCjwvZz4NCjxnPg0KPC9nPg0KPC9zdmc+DQo=)}"));
 
 	/* Customizes all icons at once */
 	$("head").append($("<style type=text/css></style>").text(".icon { \
@@ -2906,15 +1558,18 @@ function SetCSS()
 }"));
 
 	$("head").append($("<style type=text/css></style>").text("#imdbe_setbutton { \
-	position: absolute;\
+	display: inline-flex;\
 	cursor: pointer;\
+	order: 10;\
 }"));
 
 	$("head").append($("<style type=text/css></style>").text("#imdbe_settings { \
 	position: fixed;\
-	cursor: pointer;\
 	z-index: 500;\
-	background: #eee;\
+	background: #1f1f1f;\
+	font-family: Roboto,Helvetica,Arial,sans-serif;\
+	color:#dddddd;\
+	padding:10px;\
 }"));
 
 	$("head").append($("<style type=text/css></style>").text(".imdbe_revBarC { \
@@ -2932,17 +1587,19 @@ function SetCSS()
 	padding-left:20px;\
 }"));
 
-
 	$("head").append($("<style type=text/css></style>").text("#imdbe_popupDiv { \
-	background: #fbfbfb;\
+	background: #1f1f1f;\
 	z-index: 500;\
-	max-width: 650px;\
-	max-height: 250px;\
-	border: 2px solid #BBB;\
+	max-width: 700px;\
+	min-height: 200px;\
+	border: 2px solid #f5c518;\
+	color:#bcbcbc;\
+		padding:5px;\
+		display: flex\
 }"));
 
 	$("head").append($("<style type=text/css></style>").text(".imdbe_mode-advanced { \
-	font-size: 13px;\
+	font-size: 14px;\
 	padding: 5px 10px;\
 }"));
 
@@ -2953,7 +1610,7 @@ function SetCSS()
 }"));
 
 	$("head").append($("<style type=text/css></style>").text(".imdbe_lister-item-content { \
-	max-width: 84%;\
+	max-width: 90%;\
 	display: inline-block;\
 	vertical-align: top;\
 }"));
@@ -2965,8 +1622,9 @@ function SetCSS()
 
 //Start
 //Function place option button and html option
-function SetOption()
+function SetHtml(options2)
 {
+	//settings
 	const settingsDiv = $("<div id=imdbe_settings></div>").html("<div class=spaser><div class=sidecontentbox> \
 <div class=name><h1 class='h1'>Options of IMDB Enhancement " + GM.info.script.version + "</h1></div>\
 <ul class=content><li> \
@@ -2993,39 +1651,59 @@ function SetOption()
 <button id=imdbe_hide>Save and Close</button></li></ul></div></div> \
 ");
 
-	$("#wrapper").prepend($("<div id=imdbe_setbutton></div>").html("<div class='icon icons8-Settings-Filled'></div>"));
-	$("#wrapper").prepend(settingsDiv);
+	$(".navbar__inner").append($("<div id=imdbe_setbutton></div>").html("<div class='icon imdbe_image'></div>"));
+
+	$(".ipc-page-wrapper, #wrapper").prepend(settingsDiv);
+
 	$("#imdbe_settings").hide();
-	UIValues();
-	SetEvents("setting");
-	SetEvents("rating");
+
+	UIValues(options2);
+
+	SetEvents("setting", options2);
+
+	//popup
+	const div = $("<div id=imdbe_popupDiv class='tooltip'></div>").html("LOADING...");
+
+	div.appendTo('body');
+
+	let _div = $("#imdbe_popupDiv").html("<img id='popupImage'>\
+<div id='popupRigtSection' style='padding: inherit;'>\
+<div id='popupTitle'></div>\
+<div id='popupGenres'></div>\
+<div id='popupRatings'></div>\
+<div id='popupSummary'></div>\
+<div id='popupCast'></div></div>");
+
+	_div.hide();
+
+	SetEvents("popupDiv");
 }
 //Function place option button and html option
 //End
 
 //Start
 //Function set UI values of settengs/options
-function UIValues()
+function UIValues(options2)
 {
-	$("#imdbe_age").prop("checked", age);
-	$("#imdbe_genre").prop("checked", genre);
-	$("#imdbe_trailer").prop("checked", trailer);
-	$("#imdbe_connections").prop("checked", connections);
-	$("#imdbe_additionalRatings").prop("checked", additionalRatings["on"]);
-	$("#imdbe_kinopoisk").prop("checked", additionalRatings["kinopoisk"]);
-	$("#imdbe_rottenTomatoes").prop("checked", additionalRatings["rottenTomatoes"]);
-	$("#imdbe_rMovies").prop("checked", additionalRatings["rMovies"]);
-	$("#imdbe_tmdb").prop("checked", additionalRatings["tmdb"]);
-	$("#imdbe_popupM").prop("checked", popupM);
-	$("#imdbe_popupP").prop("checked", popupP);
-	$("#imdbe_debug").prop("checked", debug);
+	$("#imdbe_age").prop("checked", options2.age);
+	$("#imdbe_genre").prop("checked", options2.genre);
+	$("#imdbe_trailer").prop("checked", options2.trailer);
+	$("#imdbe_connections").prop("checked", options2.connections);
+	$("#imdbe_additionalRatings").prop("checked", options2.additionalRatings["on"]);
+	$("#imdbe_kinopoisk").prop("checked", options2.additionalRatings["kinopoisk"]);
+	$("#imdbe_rottenTomatoes").prop("checked", options2.additionalRatings["rottenTomatoes"]);
+	$("#imdbe_rMovies").prop("checked", options2.additionalRatings["rMovies"]);
+	$("#imdbe_tmdb").prop("checked", options2.additionalRatings["tmdb"]);
+	$("#imdbe_popupM").prop("checked", options2.popupM);
+	$("#imdbe_popupP").prop("checked", options2.popupP);
+	$("#imdbe_debug").prop("checked", options2.debug);
 }
 //Function set events
 //End
 
 //Start
 //Function set events
-function SetEvents(what)
+function SetEvents(what, options2, cache2)
 {
 	switch (what)
 	{
@@ -3037,72 +1715,70 @@ function SetEvents(what)
 
 			$("#imdbe_hide").click(function ()
 			{
-				UpdateGM("options");
+				Options2._GMUpdate("options2", options2);
 				$("#imdbe_settings").toggle(1000);
 			});
 
 			$("#imdbe_clear").click(function ()
 			{
-				DeleteValues("imdbe_cache");
+				Options2._GMDeleteValues("imdbe_cache2");
 			});
 
 			$("#imdbe_debug").change(function ()
 			{
-				options.debug = $(this).prop("checked");
-				debug = $(this).prop("checked");
+				options2.debug = $(this).prop("checked");
+				//debug = $(this).prop("checked");
 			});
 
 			$("#imdbe_age").change(function ()
 			{
-				options.age = $(this).prop("checked");
+				options2.age = $(this).prop("checked");
 			});
 
 			$("#imdbe_connections").change(function ()
 			{
-				options.connections = $(this).prop("checked");
+				options2.connections = $(this).prop("checked");
 			});
 
 			$("#imdbe_genre").change(function ()
 			{
-				options.genre = $(this).prop("checked");
+				options2.genre = $(this).prop("checked");
 			});
 
 			$("#imdbe_trailer").change(function ()
 			{
-				options.trailer = $(this).prop("checked");
+				options2.trailer = $(this).prop("checked");
 			});
 
 			$("#imdbe_popupM").change(function ()
 			{
-				options.popupM = $(this).prop("checked");
+				options2.popupM = $(this).prop("checked");
 			});
 
 			$("#imdbe_popupP").change(function ()
 			{
-				options.popupP = $(this).prop("checked");
+				options2.popupP = $(this).prop("checked");
 			});
-			break;
-		case "rating":
 			//RATINGS!!!!!!!!!!
 			$("#imdbe_additionalRatings").change(function ()
 			{
-				options.additionalRatings["on"] = $(this).prop("checked");
+				options2.additionalRatings["on"] = $(this).prop("checked");
 			});
 			$("#imdbe_kinopoisk").change(function ()
 			{
-				options.additionalRatings["kinopoisk"] = $(this).prop("checked");
+				options2.additionalRatings["kinopoisk"] = $(this).prop("checked");
 			});
 			$("#imdbe_rottenTomatoes").change(function ()
 			{
-				options.additionalRatings["rottenTomatoes"] = $(this).prop("checked");
+				options2.additionalRatings["rottenTomatoes"] = $(this).prop("checked");
 			});
 			$("#imdbe_rMovies").change(function ()
 			{
-				options.additionalRatings["rMovies"] = $(this).prop("checked");
+				options2.additionalRatings["rMovies"] = $(this).prop("checked");
 			});
 			$("#imdbe_tmdb").change(function ()
 			{
-				options.additionalRatings["tmdb"] = $(this).prop("checked");
+				options2.additionalRatings["tmdb"] = $(this).prop("checked");
 			});
 			//RATINGS!!!!!!!!!!
 			break;
@@ -3115,27 +1791,48 @@ function SetEvents(what)
 		case "clickFilm":
 			$("#filmography > div.head").click(function ()
 			{
-				GetContent.genre();
+				ShowGenre(cache2);
 			});
 			break;
 		case "popupM":
-			$("a").mouseover(function (e)
+			$("a").hover(function (e)
 			{
 				if ($(e.target).attr("href").includes("title/tt"))
 				{
-					if (debug) console.log("in: " + e.target);
-					ShowPopUp(e, "movie");
+					//console.log("in: " + e.target);
+					ShowPopUp(e, "movie", cache2);
 				}
+			}, function (e)
+				{
+					if (!$('#imdbe_popupDiv').is(':hover'))
+					{
+						$("#imdbe_popupDiv").hide(100);
+						e.preventDefault();
+					}
 			});
 			break;
 		case "popupP":
-			$("a").mouseover(function (e)
+			$("a").hover(function (e)
 			{
 				if ($(e.target).attr("href").includes("name/nm"))
 				{
-					if (debug) console.log("in: " + e.target);
-					ShowPopUp(e, "people");
+					//console.log("in: " + e.target);
+					ShowPopUp(e, "people", cache2);
 				}
+			}, function (e)
+			{
+				if (!$('#imdbe_popupDiv').is(':hover'))
+				{
+					$("#imdbe_popupDiv").hide(100);
+					e.preventDefault();
+				}
+			});
+			break;
+		case "popupDiv":
+			$("#imdbe_popupDiv").mouseleave(function (e)
+			{
+				$("#imdbe_popupDiv").hide(100);
+				e.preventDefault();
 			});
 			break;
 		default:
@@ -3165,13 +1862,13 @@ function StripNewLines(string)
 function GetStringScore(num)
 {
 	if (typeof num === "string" || num === null || typeof num === "undefined" || isNaN(num))
-		return "tbd";
+		return "#000";
 	else if (num >= 60)
-		return "favorable";
+		return "#54A72A";
 	else if (num <= 40)
-		return "unfavorable";
+		return "#FF0000";
 	else
-		return "mixed";
+		return "#BB8A00";
 }
 //Function Get String Score
 //End
